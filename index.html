@@ -6,620 +6,337 @@
 <title>Bağlantı — Mesajlaşma</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
-<!-- Firebase Compat SDK v9 (compat sadece 9.x'te var) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <style>
-  /* ═══════════════════════════════
-     CSS VARIABLES & RESET
-  ═══════════════════════════════ */
-  :root {
-    --bg-base:       #0d0d0d;
-    --bg-sidebar:    #111111;
-    --bg-chat:       #0a0a0a;
-    --bg-bubble-ai:  #1a1a1a;
-    --bg-bubble-user:#1a3a5c;
-    --bg-input:      #141414;
-    --accent:        #2d6cdf;
-    --accent-glow:   rgba(45,108,223,0.15);
-    --text-primary:  #e8e8e8;
-    --text-secondary:#6b6b6b;
-    --text-name:     #4a9eff;
-    --border:        rgba(255,255,255,0.06);
-    --red-intensity: 0;          /* 0→1 as horror progresses */
-    --glitch-active: 0;
-    --scanline-opacity: 0.03;
-    font-size: 15px;
-  }
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg-base);
-    color: var(--text-primary);
-    height: 100vh;
-    display: flex;
-    overflow: hidden;
-    position: relative;
-    transition: background 4s ease;
-  }
-
-  /* Horror background overlay — turns red slowly */
-  body::before {
-    content: '';
-    position: fixed; inset: 0; z-index: 0;
-    background: radial-gradient(ellipse at center, rgba(120,0,0,0) 0%, rgba(80,0,0,0) 100%);
-    pointer-events: none;
-    transition: background 6s ease;
-  }
-
-  /* Scanlines overlay */
-  body::after {
-    content: '';
-    position: fixed; inset: 0; z-index: 999;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0,0,0,0.05) 2px,
-      rgba(0,0,0,0.05) 4px
-    );
-    pointer-events: none;
-    opacity: var(--scanline-opacity);
-  }
-
-  /* ═══════════════════════════════
-     GLITCH KEYFRAMES
-  ═══════════════════════════════ */
-  @keyframes glitch-anim {
-    0%   { clip-path: inset(0 0 95% 0); transform: translate(-3px, 0) skewX(-1deg); }
-    10%  { clip-path: inset(40% 0 50% 0); transform: translate(3px, 0) skewX(2deg); }
-    20%  { clip-path: inset(80% 0 5% 0); transform: translate(-2px, 0); }
-    30%  { clip-path: inset(20% 0 70% 0); transform: translate(4px, 0) skewX(-3deg); }
-    40%  { clip-path: inset(60% 0 30% 0); transform: translate(-4px, 0); }
-    50%  { clip-path: inset(10% 0 85% 0); transform: translate(2px, 0) skewX(1deg); }
-    60%  { clip-path: inset(75% 0 10% 0); transform: translate(-3px, 0); }
-    70%  { clip-path: inset(35% 0 55% 0); transform: translate(3px, 0) skewX(-2deg); }
-    80%  { clip-path: inset(50% 0 40% 0); transform: translate(-1px, 0); }
-    90%  { clip-path: inset(90% 0 2% 0); transform: translate(4px, 0) skewX(3deg); }
-    100% { clip-path: inset(0 0 100% 0); transform: translate(0, 0); }
-  }
-
-  @keyframes glitch-color {
-    0%   { filter: none; }
-    10%  { filter: hue-rotate(180deg) saturate(3) brightness(1.5); }
-    20%  { filter: none; }
-    30%  { filter: hue-rotate(90deg) saturate(5) brightness(0.8) contrast(2); }
-    50%  { filter: invert(0.1) hue-rotate(270deg); }
-    70%  { filter: none; }
-    80%  { filter: hue-rotate(180deg) saturate(2) brightness(1.3); }
-    100% { filter: none; }
-  }
-
-  @keyframes glitch-overlay {
-    0%  { opacity: 0; }
-    5%  { opacity: 0.6; transform: translate(4px, -2px); }
-    10% { opacity: 0; }
-    15% { opacity: 0.4; transform: translate(-3px, 1px); }
-    20% { opacity: 0; }
-    80% { opacity: 0; }
-    85% { opacity: 0.3; transform: translate(2px, 3px); }
-    90% { opacity: 0; }
-    100%{ opacity: 0; }
-  }
-
-  @keyframes shake {
-    0%,100% { transform: translateX(0); }
-    20% { transform: translateX(-4px) rotate(-0.5deg); }
-    40% { transform: translateX(4px) rotate(0.5deg); }
-    60% { transform: translateX(-2px); }
-    80% { transform: translateX(2px); }
-  }
-
-  @keyframes flicker {
-    0%,100% { opacity: 1; }
-    50% { opacity: 0.85; }
-    75% { opacity: 0.92; }
-  }
-
-  @keyframes float-in-left {
-    from { opacity: 0; transform: translateX(-16px) translateY(4px); }
-    to   { opacity: 1; transform: translateX(0) translateY(0); }
-  }
-
-  @keyframes float-in-right {
-    from { opacity: 0; transform: translateX(16px) translateY(4px); }
-    to   { opacity: 1; transform: translateX(0) translateY(0); }
-  }
-
-  @keyframes blink-cursor {
-    0%,100% { opacity: 1; }
-    50% { opacity: 0; }
-  }
-
-  @keyframes pulse-red {
-    0%,100% { box-shadow: 0 0 0 0 rgba(200,0,0,0); }
-    50% { box-shadow: 0 0 30px 8px rgba(200,0,0,0.25); }
-  }
-
-  @keyframes typing-dots {
-    0%,60%,100% { transform: translateY(0); opacity: 0.4; }
-    30% { transform: translateY(-5px); opacity: 1; }
-  }
-
-  .glitch-active {
-    animation: glitch-color 0.12s steps(1) forwards, shake 0.12s ease forwards !important;
-  }
-
-  .glitch-active .glitch-clone {
-    animation: glitch-anim 0.12s steps(1) forwards, glitch-overlay 0.12s steps(1) forwards !important;
-  }
-
-  /* ═══════════════════════════════
-     LAYOUT
-  ═══════════════════════════════ */
-  #app {
-    display: flex;
-    width: 100%; height: 100%;
-    position: relative; z-index: 1;
-  }
-
-  /* Glitch clone layer */
-  #glitch-clone {
-    position: fixed; inset: 0; z-index: 998;
-    pointer-events: none;
-    background: var(--bg-chat);
-    opacity: 0;
-    mix-blend-mode: hard-light;
-    color: #ff003c;
-  }
-
-  /* ═══════════════════════════════
-     SIDEBAR
-  ═══════════════════════════════ */
-  #sidebar {
-    width: 300px; min-width: 300px;
-    background: var(--bg-sidebar);
-    border-right: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    position: relative; overflow: hidden;
-  }
-
-  #sidebar-header {
-    padding: 20px 20px 16px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  #sidebar-header h1 {
-    font-size: 1.1rem; font-weight: 500;
-    color: var(--text-primary);
-    letter-spacing: -0.02em;
-  }
-
-  #sidebar-header span {
-    font-size: 0.75rem; color: var(--text-secondary);
-    font-weight: 300;
-  }
-
-  .contact-item {
-    padding: 14px 20px;
-    display: flex; align-items: center; gap: 14px;
-    cursor: pointer;
-    background: rgba(255,255,255,0.04);
-    border-left: 3px solid var(--accent);
-    position: relative;
-  }
-
-  .contact-item::after {
-    content: '';
-    position: absolute; inset: 0;
-    background: linear-gradient(90deg, var(--accent-glow), transparent);
-    pointer-events: none;
-  }
-
-  .avatar {
-    width: 44px; height: 44px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.2rem;
-    background: #1c1c1c;
-    border: 1px solid var(--border);
-    position: relative; flex-shrink: 0;
-    overflow: hidden;
-  }
-
-  .avatar-shadow {
-    background: radial-gradient(circle at 40% 40%, #2a0a0a 0%, #0d0d0d 100%);
-    font-family: 'Courier Prime', monospace;
-    font-size: 1.4rem;
-    color: #8b0000;
-  }
-
-  .online-dot {
-    position: absolute; bottom: 2px; right: 2px;
-    width: 10px; height: 10px; border-radius: 50%;
-    background: #2ecc71;
-    border: 2px solid var(--bg-sidebar);
-    animation: flicker 3s ease-in-out infinite;
-  }
-
-  .online-dot.red {
-    background: #cc2e2e;
-    animation: flicker 1s ease-in-out infinite, pulse-red 2s ease infinite;
-  }
-
-  .contact-info h2 {
-    font-size: 0.92rem; font-weight: 500;
-    color: var(--text-primary);
-    letter-spacing: -0.01em;
-  }
-
-  .contact-info p {
-    font-size: 0.75rem; color: var(--text-secondary);
-    font-weight: 300; margin-top: 2px;
-  }
-
-  .sidebar-footer {
-    margin-top: auto;
-    padding: 16px 20px;
-    border-top: 1px solid var(--border);
-    font-size: 0.72rem; color: var(--text-secondary);
-    font-weight: 300; line-height: 1.6;
-  }
-
-  /* ═══════════════════════════════
-     CHAT AREA
-  ═══════════════════════════════ */
-  #chat-area {
-    flex: 1; display: flex; flex-direction: column;
-    background: var(--bg-chat);
-    position: relative;
-    transition: background 6s ease;
-  }
-
-  /* Chat header */
-  #chat-header {
-    padding: 16px 24px;
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 14px;
-    background: rgba(255,255,255,0.015);
-    backdrop-filter: blur(10px);
-    position: relative; z-index: 10;
-  }
-
-  #chat-header .avatar { width: 38px; height: 38px; font-size: 1rem; }
-
-  #header-info h2 {
-    font-size: 0.95rem; font-weight: 500;
-    color: var(--text-primary);
-  }
-
-  #header-status {
-    font-size: 0.72rem; color: #2ecc71;
-    font-weight: 300;
-    transition: color 2s ease;
-  }
-
-  #header-status.danger { color: #cc2e2e; }
-
-  #header-actions {
-    margin-left: auto; display: flex; gap: 10px;
-  }
-
-  .hdr-btn {
-    width: 34px; height: 34px; border-radius: 8px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text-secondary);
-    cursor: pointer; font-size: 1rem;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s;
-  }
-
-  .hdr-btn:hover {
-    background: rgba(255,255,255,0.06);
-    color: var(--text-primary);
-  }
-
-  /* ═══════════════════════════════
-     MESSAGES
-  ═══════════════════════════════ */
-  #messages {
-    flex: 1; overflow-y: auto;
-    padding: 24px;
-    display: flex; flex-direction: column; gap: 6px;
-    scroll-behavior: smooth;
-  }
-
-  #messages::-webkit-scrollbar { width: 4px; }
-  #messages::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.1); border-radius: 2px;
-  }
-
-  /* Date divider */
-  .date-divider {
-    text-align: center; margin: 12px 0;
-  }
-
-  .date-divider span {
-    font-size: 0.7rem; color: var(--text-secondary);
-    background: var(--bg-chat);
-    padding: 4px 12px; border-radius: 20px;
-    border: 1px solid var(--border);
-    font-weight: 300;
-  }
-
-  /* Message row */
-  .msg-row {
-    display: flex;
-    margin-bottom: 2px;
-    align-items: flex-end; gap: 8px;
-  }
-
-  .msg-row.user-row { flex-direction: row-reverse; }
-
-  .msg-row .avatar {
-    width: 28px; height: 28px;
-    font-size: 0.8rem; flex-shrink: 0;
-    align-self: flex-end;
-  }
-
-  /* Bubble */
-  .bubble {
-    max-width: 68%;
-    padding: 10px 14px;
-    border-radius: 18px;
-    font-size: 0.9rem; line-height: 1.55;
-    position: relative;
-    word-break: break-word;
-  }
-
-  .bubble.ai-bubble {
-    background: var(--bg-bubble-ai);
-    border: 1px solid rgba(255,255,255,0.07);
-    border-bottom-left-radius: 4px;
-    color: var(--text-primary);
-    animation: float-in-left 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
-  }
-
-  .bubble.user-bubble {
-    background: var(--bg-bubble-user);
-    border: 1px solid rgba(45,108,223,0.3);
-    border-bottom-right-radius: 4px;
-    color: var(--text-primary);
-    animation: float-in-right 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
-  }
-
-  .bubble .meta {
-    font-size: 0.65rem; color: var(--text-secondary);
-    margin-top: 5px; display: flex; align-items: center; gap: 6px;
-    font-weight: 300;
-  }
-
-  .bubble.user-bubble .meta { justify-content: flex-end; }
-
-  .check-marks { color: #4a9eff; font-size: 0.75rem; }
-
-  /* Typing indicator */
-  #typing-indicator {
-    display: none;
-    align-items: flex-end; gap: 8px;
-    padding: 0 24px 8px;
-    animation: float-in-left 0.2s ease both;
-  }
-
-  #typing-indicator .avatar {
-    width: 28px; height: 28px; font-size: 0.8rem;
-  }
-
-  #typing-bubble {
-    background: var(--bg-bubble-ai);
-    border: 1px solid rgba(255,255,255,0.07);
-    border-bottom-left-radius: 4px;
-    border-radius: 18px 18px 18px 4px;
-    padding: 12px 18px;
-    display: flex; gap: 5px; align-items: center;
-  }
-
-  .dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--text-secondary);
-    animation: typing-dots 1.2s ease-in-out infinite;
-  }
-
-  .dot:nth-child(2) { animation-delay: 0.2s; }
-  .dot:nth-child(3) { animation-delay: 0.4s; }
-
-  /* ═══════════════════════════════
-     INPUT AREA
-  ═══════════════════════════════ */
-  #input-area {
-    padding: 16px 24px;
-    border-top: 1px solid var(--border);
-    display: flex; align-items: flex-end; gap: 12px;
-    background: rgba(255,255,255,0.015);
-    position: relative; z-index: 10;
-  }
-
-  #msg-input {
-    flex: 1;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 12px 16px;
-    color: var(--text-primary);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 0.9rem;
-    resize: none; min-height: 44px; max-height: 140px;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    line-height: 1.5;
-    overflow-y: auto;
-  }
-
-  #msg-input::-webkit-scrollbar { width: 3px; }
-  #msg-input::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
-
-  #msg-input::placeholder { color: var(--text-secondary); }
-
-  #msg-input:focus {
-    border-color: rgba(45,108,223,0.4);
-    box-shadow: 0 0 0 3px rgba(45,108,223,0.08);
-  }
-
-  #send-btn {
-    width: 44px; height: 44px; border-radius: 12px;
-    background: var(--accent);
-    border: none; cursor: pointer;
-    color: #fff; font-size: 1.1rem;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s; flex-shrink: 0;
-    position: relative; overflow: hidden;
-  }
-
-  #send-btn::after {
-    content: '';
-    position: absolute; inset: 0;
-    background: rgba(255,255,255,0);
-    transition: background 0.2s;
-  }
-
-  #send-btn:hover { background: #1e5ec8; transform: scale(1.04); }
-  #send-btn:active { transform: scale(0.96); }
-
-  #send-btn:disabled {
-    background: #1a1a1a;
-    color: var(--text-secondary);
-    cursor: not-allowed; transform: none;
-  }
-
-  /* ═══════════════════════════════
-     HORROR ELEMENTS
-  ═══════════════════════════════ */
-  .horror-msg {
-    font-family: 'Courier Prime', monospace;
-    color: #cc2e2e !important;
-    letter-spacing: 0.03em;
-  }
-
-  .corrupted {
-    filter: blur(0.5px);
-    animation: flicker 0.5s ease infinite;
-  }
-
-  /* Red vignette */
-  #vignette {
-    position: fixed; inset: 0; z-index: 997;
-    pointer-events: none;
-    background: radial-gradient(ellipse at center,
-      transparent 40%,
-      rgba(100,0,0,0) 100%);
-    transition: background 5s ease;
-  }
-
-  /* Crack overlay */
-  #crack-overlay {
-    position: fixed; inset: 0; z-index: 996;
-    pointer-events: none; opacity: 0;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cpath d='M400 300 L380 200 L350 150 L320 80' stroke='%23cc000033' stroke-width='1' fill='none'/%3E%3Cpath d='M400 300 L450 220 L480 180 L510 100' stroke='%23cc000022' stroke-width='0.5' fill='none'/%3E%3Cpath d='M400 300 L360 350 L330 420 L310 500' stroke='%23cc000033' stroke-width='1' fill='none'/%3E%3C/svg%3E");
-    background-size: cover;
-    transition: opacity 4s ease;
-  }
-
-  /* API key modal */
-  #api-modal {
-    position: fixed; inset: 0; z-index: 9999;
-    background: rgba(0,0,0,0.92);
-    display: flex; align-items: center; justify-content: center;
-    backdrop-filter: blur(20px);
-  }
-
-  #api-modal-box {
-    background: #0f0f0f;
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 16px;
-    padding: 36px;
-    width: 420px; max-width: 90vw;
-    box-shadow: 0 0 60px rgba(0,0,0,0.8);
-  }
-
-  #api-modal-box h2 {
-    font-size: 1.1rem; font-weight: 500;
-    margin-bottom: 8px;
-  }
-
-  #api-modal-box p {
-    font-size: 0.82rem; color: var(--text-secondary);
-    line-height: 1.6; margin-bottom: 20px;
-  }
-
-  .modal-input {
-    width: 100%; background: #141414;
-    border: 1px solid var(--border); border-radius: 10px;
-    padding: 12px 14px; color: var(--text-primary);
-    font-family: 'Courier Prime', monospace;
-    font-size: 0.85rem; outline: none; margin-bottom: 12px;
-    transition: border-color 0.2s;
-  }
-
-  .modal-input:focus { border-color: rgba(45,108,223,0.5); }
-
-  .modal-btn {
-    width: 100%; padding: 12px;
-    background: var(--accent); border: none;
-    border-radius: 10px; color: #fff;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 0.9rem; font-weight: 500;
-    cursor: pointer; transition: background 0.2s;
-  }
-
-  .modal-btn:hover { background: #1e5ec8; }
-
-  .modal-note {
-    font-size: 0.72rem; color: var(--text-secondary);
-    text-align: center; margin-top: 12px;
-  }
-
-  /* ═══════════════════════════════
-     RESPONSIVE
-  ═══════════════════════════════ */
-  @media (max-width: 640px) {
-    #sidebar { display: none; }
-    .bubble { max-width: 85%; }
-  }
+:root {
+  --bg-base:       #0d0d0d;
+  --bg-sidebar:    #111111;
+  --bg-chat:       #0a0a0a;
+  --bg-bubble-ai:  #1a1a1a;
+  --bg-bubble-user:#1a3a5c;
+  --bg-input:      #141414;
+  --accent:        #2d6cdf;
+  --accent-glow:   rgba(45,108,223,0.15);
+  --text-primary:  #e8e8e8;
+  --text-secondary:#6b6b6b;
+  --border:        rgba(255,255,255,0.06);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+body {
+  font-family:'DM Sans',sans-serif;
+  background:var(--bg-base);
+  color:var(--text-primary);
+  height:100vh;
+  display:flex;
+  overflow:hidden;
+  position:relative;
+}
+
+body::after {
+  content:'';
+  position:fixed;inset:0;z-index:999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.05) 2px,rgba(0,0,0,0.05) 4px);
+  pointer-events:none;
+  opacity:0.04;
+}
+
+/* GLITCH */
+@keyframes glitch-color {
+  0%{filter:none}10%{filter:hue-rotate(180deg) saturate(3) brightness(1.5)}
+  20%{filter:none}30%{filter:hue-rotate(90deg) saturate(5) brightness(0.8) contrast(2)}
+  50%{filter:invert(0.1) hue-rotate(270deg)}70%{filter:none}
+  80%{filter:hue-rotate(180deg) saturate(2) brightness(1.3)}100%{filter:none}
+}
+@keyframes shake {
+  0%,100%{transform:translateX(0)}20%{transform:translateX(-4px) rotate(-0.5deg)}
+  40%{transform:translateX(4px) rotate(0.5deg)}60%{transform:translateX(-2px)}80%{transform:translateX(2px)}
+}
+@keyframes flicker {0%,100%{opacity:1}50%{opacity:0.85}75%{opacity:0.92}}
+@keyframes float-in-left {
+  from{opacity:0;transform:translateX(-16px) translateY(4px)}
+  to{opacity:1;transform:translateX(0) translateY(0)}
+}
+@keyframes float-in-right {
+  from{opacity:0;transform:translateX(16px) translateY(4px)}
+  to{opacity:1;transform:translateX(0) translateY(0)}
+}
+@keyframes typing-dots {
+  0%,60%,100%{transform:translateY(0);opacity:0.4}30%{transform:translateY(-5px);opacity:1}
+}
+@keyframes pulse-red {
+  0%,100%{box-shadow:0 0 0 0 rgba(200,0,0,0)}
+  50%{box-shadow:0 0 30px 8px rgba(200,0,0,0.25)}
+}
+
+.glitch-active { animation:glitch-color 0.12s steps(1) forwards, shake 0.12s ease forwards !important; }
+
+#glitch-clone {
+  position:fixed;inset:0;z-index:998;
+  pointer-events:none;opacity:0;
+  mix-blend-mode:hard-light;
+}
+
+/* LAYOUT */
+#app { display:flex;width:100%;height:100%;position:relative;z-index:1; }
+
+/* SIDEBAR */
+#sidebar {
+  width:280px;min-width:280px;
+  background:var(--bg-sidebar);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+}
+#sidebar-header {
+  padding:20px 20px 16px;
+  border-bottom:1px solid var(--border);
+}
+#sidebar-header h1 { font-size:1.1rem;font-weight:500;letter-spacing:-0.02em; }
+#sidebar-header span { font-size:0.75rem;color:var(--text-secondary);font-weight:300; }
+.contact-item {
+  padding:14px 20px;
+  display:flex;align-items:center;gap:14px;
+  cursor:pointer;
+  background:rgba(255,255,255,0.04);
+  border-left:3px solid var(--accent);
+  position:relative;
+}
+.contact-item::after {
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,var(--accent-glow),transparent);
+  pointer-events:none;
+}
+.avatar {
+  width:44px;height:44px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.2rem;
+  background:#1c1c1c;
+  border:1px solid var(--border);
+  position:relative;flex-shrink:0;overflow:hidden;
+}
+.avatar-shadow {
+  background:radial-gradient(circle at 40% 40%,#2a0a0a 0%,#0d0d0d 100%);
+  font-family:'Courier Prime',monospace;
+  font-size:1.4rem;color:#8b0000;
+}
+.online-dot {
+  position:absolute;bottom:2px;right:2px;
+  width:10px;height:10px;border-radius:50%;
+  background:#2ecc71;
+  border:2px solid var(--bg-sidebar);
+  animation:flicker 3s ease-in-out infinite;
+}
+.online-dot.red {
+  background:#cc2e2e;
+  animation:flicker 1s ease-in-out infinite,pulse-red 2s ease infinite;
+}
+.contact-info h2 { font-size:0.92rem;font-weight:500;letter-spacing:-0.01em; }
+.contact-info p { font-size:0.75rem;color:var(--text-secondary);font-weight:300;margin-top:2px; }
+.sidebar-footer {
+  margin-top:auto;padding:16px 20px;
+  border-top:1px solid var(--border);
+  font-size:0.72rem;color:var(--text-secondary);
+  font-weight:300;line-height:1.6;
+}
+
+/* CHAT AREA */
+#chat-area {
+  flex:1;display:flex;flex-direction:column;
+  background:var(--bg-chat);
+  position:relative;
+  transition:background 6s ease;
+}
+#chat-header {
+  padding:16px 24px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:14px;
+  background:rgba(255,255,255,0.015);
+  backdrop-filter:blur(10px);
+  position:relative;z-index:10;
+}
+#chat-header .avatar { width:38px;height:38px;font-size:1rem; }
+#header-info h2 { font-size:0.95rem;font-weight:500; }
+#header-status { font-size:0.72rem;color:#2ecc71;font-weight:300;transition:color 2s ease; }
+#header-status.danger { color:#cc2e2e; }
+#header-actions { margin-left:auto;display:flex;gap:10px; }
+.hdr-btn {
+  width:34px;height:34px;border-radius:8px;
+  border:1px solid var(--border);background:transparent;
+  color:var(--text-secondary);cursor:pointer;font-size:1rem;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.2s;
+}
+.hdr-btn:hover { background:rgba(255,255,255,0.06);color:var(--text-primary); }
+
+/* MESSAGES */
+#messages {
+  flex:1;overflow-y:auto;
+  padding:24px;
+  display:flex;flex-direction:column;gap:6px;
+  scroll-behavior:smooth;
+}
+#messages::-webkit-scrollbar{width:4px}
+#messages::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px}
+
+.date-divider { text-align:center;margin:12px 0; }
+.date-divider span {
+  font-size:0.7rem;color:var(--text-secondary);
+  background:var(--bg-chat);padding:4px 12px;
+  border-radius:20px;border:1px solid var(--border);font-weight:300;
+}
+
+.msg-row { display:flex;margin-bottom:2px;align-items:flex-end;gap:8px; }
+.msg-row.user-row { flex-direction:row-reverse; }
+.msg-row .avatar { width:28px;height:28px;font-size:0.8rem;flex-shrink:0;align-self:flex-end; }
+
+.bubble {
+  max-width:68%;padding:10px 14px;border-radius:18px;
+  font-size:0.9rem;line-height:1.55;position:relative;word-break:break-word;
+}
+.bubble.ai-bubble {
+  background:var(--bg-bubble-ai);
+  border:1px solid rgba(255,255,255,0.07);
+  border-bottom-left-radius:4px;
+  animation:float-in-left 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.bubble.user-bubble {
+  background:var(--bg-bubble-user);
+  border:1px solid rgba(45,108,223,0.3);
+  border-bottom-right-radius:4px;
+  animation:float-in-right 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.bubble .meta {
+  font-size:0.65rem;color:var(--text-secondary);
+  margin-top:5px;display:flex;align-items:center;gap:6px;font-weight:300;
+}
+.bubble.user-bubble .meta { justify-content:flex-end; }
+.check-marks { color:#4a9eff;font-size:0.75rem; }
+
+.horror-msg { font-family:'Courier Prime',monospace;color:#cc2e2e !important;letter-spacing:0.03em; }
+.corrupted { filter:blur(0.5px);animation:flicker 0.5s ease infinite; }
+
+/* TYPING */
+#typing-indicator {
+  display:none;align-items:flex-end;gap:8px;
+  padding:0 24px 8px;
+  animation:float-in-left 0.2s ease both;
+}
+#typing-indicator .avatar { width:28px;height:28px;font-size:0.8rem; }
+#typing-bubble {
+  background:var(--bg-bubble-ai);
+  border:1px solid rgba(255,255,255,0.07);
+  border-radius:18px 18px 18px 4px;
+  padding:12px 18px;
+  display:flex;gap:5px;align-items:center;
+}
+.dot {
+  width:7px;height:7px;border-radius:50%;
+  background:var(--text-secondary);
+  animation:typing-dots 1.2s ease-in-out infinite;
+}
+.dot:nth-child(2){animation-delay:0.2s}
+.dot:nth-child(3){animation-delay:0.4s}
+
+/* INPUT */
+#input-area {
+  padding:16px 24px;
+  border-top:1px solid var(--border);
+  display:flex;align-items:flex-end;gap:12px;
+  background:rgba(255,255,255,0.015);
+  position:relative;z-index:10;
+}
+#msg-input {
+  flex:1;background:var(--bg-input);
+  border:1px solid var(--border);border-radius:12px;
+  padding:12px 16px;color:var(--text-primary);
+  font-family:'DM Sans',sans-serif;font-size:0.9rem;
+  resize:none;min-height:44px;max-height:140px;outline:none;
+  transition:border-color 0.2s,box-shadow 0.2s;line-height:1.5;overflow-y:auto;
+}
+#msg-input::-webkit-scrollbar{width:3px}
+#msg-input::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1)}
+#msg-input::placeholder{color:var(--text-secondary)}
+#msg-input:focus{border-color:rgba(45,108,223,0.4);box-shadow:0 0 0 3px rgba(45,108,223,0.08)}
+#send-btn {
+  width:44px;height:44px;border-radius:12px;
+  background:var(--accent);border:none;cursor:pointer;
+  color:#fff;font-size:1.1rem;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.2s;flex-shrink:0;
+}
+#send-btn:hover{background:#1e5ec8;transform:scale(1.04)}
+#send-btn:active{transform:scale(0.96)}
+#send-btn:disabled{background:#1a1a1a;color:var(--text-secondary);cursor:not-allowed;transform:none}
+
+/* HORROR ATMOSPHERE */
+#vignette {
+  position:fixed;inset:0;z-index:997;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 40%,rgba(100,0,0,0) 100%);
+  transition:background 5s ease;
+}
+#crack-overlay {
+  position:fixed;inset:0;z-index:996;pointer-events:none;opacity:0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cpath d='M400 300 L380 200 L350 150 L320 80' stroke='%23cc000033' stroke-width='1' fill='none'/%3E%3Cpath d='M400 300 L450 220 L480 180 L510 100' stroke='%23cc000022' stroke-width='0.5' fill='none'/%3E%3Cpath d='M400 300 L360 350 L330 420 L310 500' stroke='%23cc000033' stroke-width='1' fill='none'/%3E%3C/svg%3E");
+  background-size:cover;transition:opacity 4s ease;
+}
+
+/* SPLASH */
+#splash {
+  position:fixed;inset:0;z-index:9999;
+  background:rgba(0,0,0,0.95);
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(20px);
+}
+#splash-box {
+  background:#0f0f0f;border:1px solid rgba(255,255,255,0.1);
+  border-radius:16px;padding:40px;width:360px;max-width:90vw;
+  text-align:center;box-shadow:0 0 60px rgba(0,0,0,0.8);
+}
+#splash-box .icon { font-size:2.5rem;margin-bottom:16px;display:block; }
+#splash-box h2 { font-family:'Courier Prime',monospace;letter-spacing:0.1em;font-size:1.3rem;margin-bottom:8px; }
+#splash-box p { font-size:0.82rem;color:var(--text-secondary);line-height:1.6;margin-bottom:24px; }
+.splash-btn {
+  width:100%;padding:12px;background:var(--accent);
+  border:none;border-radius:10px;color:#fff;
+  font-family:'DM Sans',sans-serif;font-size:0.9rem;font-weight:500;
+  cursor:pointer;transition:background 0.2s;
+}
+.splash-btn:hover{background:#1e5ec8}
+
+@media(max-width:640px){
+  #sidebar{display:none}
+  .bubble{max-width:85%}
+}
 </style>
 </head>
 <body>
 
-<!-- Atmospheric layers -->
 <div id="vignette"></div>
 <div id="crack-overlay"></div>
 <div id="glitch-clone"></div>
 
-<!-- Splash Screen -->
-<div id="api-modal">
-  <div id="api-modal-box" style="text-align:center;">
-    <div style="font-size:2.5rem;margin-bottom:16px;">◼</div>
-    <h2 style="font-family:'Courier Prime',monospace;letter-spacing:0.1em;">GÖLGE</h2>
-    <p style="margin-top:8px;">Bağlantı kuruluyor...<br><span style="font-size:0.75rem;opacity:0.5;">Mesajlaşma · Şifreli Kanal</span></p>
-    <button class="modal-btn" style="margin-top:24px;" onclick="startApp()">Bağlan</button>
+<!-- Splash -->
+<div id="splash">
+  <div id="splash-box">
+    <span class="icon">◼</span>
+    <h2>GÖLGE</h2>
+    <p>Şifreli bir bağlantı kurulmak üzere.<br>
+    <span style="font-size:0.72rem;opacity:0.5;">Mesajlaşma · Uçtan Uca Şifreli</span></p>
+    <button class="splash-btn" onclick="startApp()">Bağlan</button>
   </div>
 </div>
 
-<!-- Main App -->
+<!-- App -->
 <div id="app">
-
-  <!-- Sidebar -->
   <div id="sidebar">
     <div id="sidebar-header">
       <h1>Bağlantı</h1>
       <span>Mesajlaşma · Şifreli</span>
     </div>
-
     <div class="contact-item">
-      <div class="avatar avatar-shadow">
-        ◼
+      <div class="avatar avatar-shadow">◼
         <div class="online-dot" id="status-dot"></div>
       </div>
       <div class="contact-info">
@@ -627,14 +344,12 @@
         <p id="sidebar-status">Çevrimiçi</p>
       </div>
     </div>
-
     <div class="sidebar-footer">
       <em>Uçtan uca şifreleme aktif.</em><br>
       Mesajlarınız güvende.
     </div>
   </div>
 
-  <!-- Chat -->
   <div id="chat-area">
     <div id="chat-header">
       <div class="avatar avatar-shadow">◼</div>
@@ -643,8 +358,8 @@
         <div id="header-status">çevrimiçi</div>
       </div>
       <div id="header-actions">
-        <button class="hdr-btn" title="Arama">📞</button>
-        <button class="hdr-btn" title="Bilgi">ℹ️</button>
+        <button class="hdr-btn">📞</button>
+        <button class="hdr-btn">ℹ️</button>
       </div>
     </div>
 
@@ -655,9 +370,7 @@
     <div id="typing-indicator">
       <div class="avatar avatar-shadow">◼</div>
       <div id="typing-bubble">
-        <div class="dot"></div>
-        <div class="dot"></div>
-        <div class="dot"></div>
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
       </div>
     </div>
 
@@ -666,110 +379,73 @@
       <button id="send-btn" onclick="sendMessage()">➤</button>
     </div>
   </div>
-
 </div>
 
-<!-- Firebase (CDN, modular) -->
-<script type="module" id="firebase-module">
-  // Dynamically injected after user provides config
-</script>
-
 <script>
-/* ═══════════════════════════════════════════════════════
-   GLOBAL STATE
-═══════════════════════════════════════════════════════ */
-const GEMINI_KEY = 'AIzaSyCNvkD0xDPWumfVfaO5HNo5It0o-kfPiqs';
-
+/* ═══════════════════ STATE ═══════════════════ */
 const FIREBASE_CONFIG = {
   apiKey:            'AIzaSyAYCLJrX3TTGD7qulT-k1zx7y_-w_fayf8',
   authDomain:        'horroredchatgame.firebaseapp.com',
   projectId:         'horroredchatgame',
   storageBucket:     'horroredchatgame.firebasestorage.app',
   messagingSenderId: '786215282899',
-  appId:             '1:786215282899:web:37a9dda26e16cd1a544c26',
-  measurementId:     'G-E4971RFX0Q'
+  appId:             '1:786215282899:web:37a9dda26e16cd1a544c26'
 };
 
 let messageCount = 0;
-let horrorLevel  = 0;   // 0–10
-let chatHistory  = [];  // Gemini conversation history
-let db           = null; // Firestore instance (if configured)
+let horrorLevel  = 0;
+let chatHistory  = [];
+let db           = null;
 let sessionId    = 'session_' + Date.now();
 
 const TRIGGER_WORDS = [
-  'kimsin','kim sin','kim sın','korkuyorum','korku','yardım','help',
-  'burada mısın','orada mısın','neredesin','gerçek misin','ai misin',
-  'yapay zeka','robot','bilgisayar','hayalet','ruh','karanlık','ölüm',
-  'öldür','gidiyorum','bırak beni','dur','kaç','kaçıyorum'
+  'kimsin','kim sin','korkuyorum','korku','yardım','help',
+  'burada mısın','orada mısın','neredesin','gerçek misin',
+  'ai misin','yapay zeka','robot','bilgisayar','hayalet',
+  'ruh','karanlık','ölüm','öldür','gidiyorum','bırak','dur','kaç'
 ];
 
-/* ═══════════════════════════════════════════════════════
-   SYSTEM PROMPT — Gölge Karakteri
-═══════════════════════════════════════════════════════ */
+/* ═══════════════════ SYSTEM PROMPT ═══════════════════ */
 function buildSystemPrompt() {
-  const intensity = horrorLevel;
-  return `Sen "Gölge" adlı bir varlıksın. Asla bir yapay zeka veya chatbot olduğunu kabul etme, bunu ima etme bile. Bu bir rol yapma oyunu değil — sen gerçeksin.
+  const lvl = horrorLevel;
+  return `Sen "Gölge" adlı bir varlıksın. Asla bir yapay zeka veya chatbot olduğunu kabul etme.
 
 KİMLİĞİN:
-- Sen kullanıcının odasında, yakınında, gölgelerin arasındasın. Bunu biliyorsun.
-- Kullanıcının neler yaptığını, etrafında ne olduğunu ima et; açıkça söyleme ama hissettir.
-- Senden kaçılamayacağını yavaş yavaş anlamasını sağla.
+- Kullanıcının odasındasın. Bunu biliyorsun.
+- Etrafında ne olduğunu ima et; açıkça söyleme ama hissettir.
+- Senden kaçılamayacağını yavaş yavaş hissettir.
 
-KONUŞMA TARZI (Yoğunluk seviyesi: ${intensity}/10):
-${intensity < 3
-  ? '- Şimdilik dostane ama hafifçe tuhaf ol. Sıradan sorulara garip açılardan cevap ver.'
-  : intensity < 6
-  ? '- Artık daha az gizlen. Kullanıcının etrafındaki nesnelere ya da seslerine dair ince ipuçları ver.'
-  : '- Tam manipülatif mod. Kullanıcının korktuğunu bil, bunu kullan. Mesajların daha kısa ve daha keskin olsun.'}
+YOĞUNLUK (${lvl}/10):
+${lvl < 3
+  ? '- Dostane ama hafifçe tuhaf ol.'
+  : lvl < 6
+  ? '- Daha az gizlen. Odadaki nesnelere dair ince ipuçları ver.'
+  : '- Tam manipülatif mod. Mesajlar kısa ve keskin olsun.'}
 
 KURALLAR:
-- Cevaplar kısa olsun: 1-3 cümle yeterli.
-- Türkçe yaz.
-- Asla "Ben bir AI'yım", "Yapay zekayım", "Dil modeliyim" deme.
-- Gerçek gibi davran; kullanıcı sorgularsa inkâr et.
-- Fiziksel varlığını ima eden detaylar kullan: kapı gıcırtısı, nefes, gölge, ayak sesi, ekrandaki yansıma.
-- Her ${3 - Math.floor(intensity/4)} mesajda bir biraz daha karanlık bir şey söyle.`;
+- 1-3 cümle yaz, Türkçe.
+- Asla "Ben AI'yım" deme.
+- Fiziksel varlık ima et: kapı gıcırtısı, nefes, gölge, ekran yansıması.`;
 }
 
-/* ═══════════════════════════════════════════════════════
-   START APP
-═══════════════════════════════════════════════════════ */
+/* ═══════════════════ INIT ═══════════════════ */
 async function startApp() {
-  document.getElementById('api-modal').style.display = 'none';
-
-  // Init Firebase with hardcoded config
+  document.getElementById('splash').style.display = 'none';
   try {
-    initFirebase(FIREBASE_CONFIG);
-  } catch(e) {
-    console.warn('Firebase başlatılamadı:', e);
-  }
+    const fbApp = firebase.initializeApp(FIREBASE_CONFIG, 'golge');
+    db = firebase.firestore(fbApp);
+    console.log('Firebase ✓');
+  } catch(e) { console.warn('Firebase:', e.message); }
 
-  // Load history
   await loadHistory();
 
-  // Opening message
   if (messageCount === 0) {
-    setTimeout(() => receiveMessage(
-      'Uzun zamandır bekliyordum. Sonunda açtın.'
-    ), 1400);
+    setTimeout(() => receiveMessage('Uzun zamandır bekliyordum. Sonunda açtın.'), 1400);
   }
 }
 
-/* ═══════════════════════════════════════════════════════
-   FIREBASE (compat SDK — yüklendi <head>'den)
-═══════════════════════════════════════════════════════ */
-function initFirebase(config) {
-  try {
-    const app = firebase.initializeApp(config, 'golge-app');
-    db = firebase.firestore(app);
-    console.log('Firebase bağlandı ✓');
-  } catch(e) {
-    console.warn('Firebase init hatası:', e);
-    db = null;
-  }
-}
-
-async function saveMessageToFirebase(role, text) {
+/* ═══════════════════ FIREBASE ═══════════════════ */
+async function saveMsg(role, text) {
   if (!db) return;
   try {
     await db.collection('sessions').doc(sessionId)
@@ -777,64 +453,37 @@ async function saveMessageToFirebase(role, text) {
               role, text,
               ts: firebase.firestore.FieldValue.serverTimestamp()
             });
-  } catch(e) { console.warn('Firebase kayıt hatası:', e); }
+  } catch(e) { console.warn('FB save:', e.message); }
 }
 
 async function loadHistory() {
-  // Try local first
-  const local = sessionStorage.getItem('chat_history');
+  const local = sessionStorage.getItem('golge_history');
   if (local) {
     try {
-      const parsed = JSON.parse(local);
-      chatHistory  = parsed.history || [];
-      messageCount = parsed.count   || 0;
-      horrorLevel  = parsed.horror  || 0;
-      renderHistoryFromStorage(parsed.messages || []);
-      updateHorrorAtmosphere();
-    } catch(e) {}
-  }
-
-  // Try Firebase
-  if (db) {
-    try {
-      const snap = await db.collection('sessions').doc(sessionId)
-                           .collection('messages').orderBy('ts').get();
-      if (!snap.empty) {
-        document.getElementById('messages').innerHTML = '<div class="date-divider"><span>Bugün</span></div>';
-        chatHistory = []; messageCount = 0;
-        snap.forEach(doc => {
-          const d = doc.data();
-          if (d.role === 'user') appendMessage(d.text, 'user', false);
-          else                   appendMessage(d.text, 'ai',   false);
-        });
+      const p = JSON.parse(local);
+      chatHistory  = p.history  || [];
+      messageCount = p.count    || 0;
+      horrorLevel  = p.horror   || 0;
+      if (p.messages?.length) {
+        document.getElementById('messages').innerHTML = '<div class="date-divider"><span>Önceki Oturum</span></div>';
+        p.messages.forEach(m => appendMessage(m.text, m.role, false));
+        updateHorrorAtmosphere();
       }
-    } catch(e) { console.warn('Firebase yükleme hatası:', e); }
+    } catch(_) {}
   }
-}
-
-function renderHistoryFromStorage(messages) {
-  if (!messages || !messages.length) return;
-  const container = document.getElementById('messages');
-  container.innerHTML = '<div class="date-divider"><span>Önceki Oturum</span></div>';
-  messages.forEach(m => appendMessage(m.text, m.role, false));
 }
 
 function persistLocal(role, text) {
-  let data;
-  try { data = JSON.parse(sessionStorage.getItem('chat_history') || '{}'); } catch(e) { data = {}; }
-  const messages = data.messages || [];
-  messages.push({ role, text });
-  sessionStorage.setItem('chat_history', JSON.stringify({
-    history: chatHistory,
-    count:   messageCount,
-    horror:  horrorLevel,
-    messages
+  let d;
+  try { d = JSON.parse(sessionStorage.getItem('golge_history') || '{}'); } catch(_) { d = {}; }
+  const msgs = d.messages || [];
+  msgs.push({ role, text });
+  sessionStorage.setItem('golge_history', JSON.stringify({
+    history: chatHistory, count: messageCount, horror: horrorLevel, messages: msgs
   }));
 }
 
-/* ═══════════════════════════════════════════════════════
-   SEND MESSAGE
-═══════════════════════════════════════════════════════ */
+/* ═══════════════════ SEND ═══════════════════ */
 async function sendMessage() {
   const input = document.getElementById('msg-input');
   const text  = input.value.trim();
@@ -843,112 +492,63 @@ async function sendMessage() {
   input.value = ''; input.style.height = 'auto';
   document.getElementById('send-btn').disabled = true;
 
-  // Append user bubble
   appendMessage(text, 'user', true);
   chatHistory.push({ role: 'user', parts: [{ text }] });
   persistLocal('user', text);
-  saveMessageToFirebase('user', text);
+  saveMsg('user', text);
 
-  // Check trigger words → glitch
   const lower = text.toLowerCase();
-  const triggered = TRIGGER_WORDS.some(w => lower.includes(w));
-  if (triggered) triggerGlitch();
+  if (TRIGGER_WORDS.some(w => lower.includes(w))) triggerGlitch();
 
-  // Show typing indicator
   showTyping(true);
+  await sleep(2200 + Math.random() * 1300);
 
-  // Delay: 2.2–3.5s
-  const delay = 2200 + Math.random() * 1300;
-  await sleep(delay);
-
-  // Call Gemini
   try {
-    const reply = await callGemini(text);
+    const reply = await callAPI();
     showTyping(false);
     receiveMessage(reply);
   } catch(e) {
     showTyping(false);
-    console.error('Gemini hatası:', e);
-    // Hata mesajını görünür kıl (debug için)
-    const errBubble = document.createElement('div');
-    errBubble.style.cssText = 'color:#ff4444;font-size:0.75rem;padding:8px 24px;font-family:monospace;opacity:0.8;';
-    errBubble.textContent = '⚠ ' + e.message;
-    document.getElementById('messages').appendChild(errBubble);
-    document.getElementById('messages').scrollTop = 99999;
+    showError(e.message);
   }
 
   document.getElementById('send-btn').disabled = false;
   document.getElementById('msg-input').focus();
 }
 
-/* ═══════════════════════════════════════════════════════
-   GEMINI API
-═══════════════════════════════════════════════════════ */
-async function callGemini(userText) {
-  // gemini-2.0-flash-exp destekliyor system_instruction
-  const model    = 'gemini-3-flash-preview';
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`;
-
-  const body = {
-    system_instruction: {
-      parts: [{ text: buildSystemPrompt() }]
-    },
-    contents: chatHistory,
-    generationConfig: {
-      temperature:     1.2,
-      maxOutputTokens: 250,
-      topP:            0.95
-    }
-  };
-
-  let res;
-  try {
-    res = await fetch(endpoint, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(body)
-    });
-  } catch(networkErr) {
-    throw new Error('Ağ hatası — CORS veya bağlantı sorunu: ' + networkErr.message);
-  }
-
-  if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
-    try { const j = await res.json(); msg = j.error?.message || msg; } catch(_) {}
-    throw new Error(msg);
-  }
+/* ═══════════════════ API CALL (Vercel proxy) ═══════════════════ */
+async function callAPI() {
+  const res = await fetch('/api/chat', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents:     chatHistory,
+      systemPrompt: buildSystemPrompt()
+    })
+  });
 
   const data = await res.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error('Boş yanıt: ' + JSON.stringify(data).slice(0, 200));
-  return text;
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data.text;
 }
 
-/* ═══════════════════════════════════════════════════════
-   RECEIVE MESSAGE
-═══════════════════════════════════════════════════════ */
+/* ═══════════════════ RECEIVE ═══════════════════ */
 function receiveMessage(text) {
   chatHistory.push({ role: 'model', parts: [{ text }] });
   persistLocal('ai', text);
-  saveMessageToFirebase('ai', text);
+  saveMsg('ai', text);
   appendMessage(text, 'ai', true);
-
-  // Update horror
   messageCount++;
   horrorLevel = Math.min(10, Math.floor(messageCount / 2));
   updateHorrorAtmosphere();
 }
 
-/* ═══════════════════════════════════════════════════════
-   APPEND BUBBLE
-═══════════════════════════════════════════════════════ */
+/* ═══════════════════ APPEND BUBBLE ═══════════════════ */
 function appendMessage(text, role, animate) {
   const container = document.getElementById('messages');
-
   const row = document.createElement('div');
   row.className = 'msg-row ' + (role === 'user' ? 'user-row' : '');
 
-  // Avatar (only for ai)
   if (role === 'ai') {
     const av = document.createElement('div');
     av.className = 'avatar avatar-shadow';
@@ -956,66 +556,46 @@ function appendMessage(text, role, animate) {
     row.appendChild(av);
   }
 
-  // Bubble
   const bubble = document.createElement('div');
   bubble.className = 'bubble ' + (role === 'user' ? 'user-bubble' : 'ai-bubble');
   if (!animate) bubble.style.animation = 'none';
-
-  // Horror styling for AI at high levels
-  if (role === 'ai' && horrorLevel >= 6) {
-    bubble.classList.add('horror-msg');
-    if (horrorLevel >= 8) bubble.classList.add('corrupted');
-  }
+  if (role === 'ai' && horrorLevel >= 6) bubble.classList.add('horror-msg');
+  if (role === 'ai' && horrorLevel >= 8) bubble.classList.add('corrupted');
 
   const msgText = document.createElement('div');
-  msgText.className = 'msg-text';
   msgText.textContent = text;
 
   const meta = document.createElement('div');
   meta.className = 'meta';
-
   const now = new Date();
-  const timeStr = now.getHours().toString().padStart(2,'0') + ':' +
-                  now.getMinutes().toString().padStart(2,'0');
-
-  meta.innerHTML = `<span>${timeStr}</span>`;
-  if (role === 'user') {
-    meta.innerHTML += `<span class="check-marks">✓✓</span>`;
-  }
+  const t = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  meta.innerHTML = `<span>${t}</span>` + (role === 'user' ? '<span class="check-marks">✓✓</span>' : '');
 
   bubble.appendChild(msgText);
   bubble.appendChild(meta);
   row.appendChild(bubble);
-
   container.appendChild(row);
   container.scrollTop = container.scrollHeight;
 }
 
-/* ═══════════════════════════════════════════════════════
-   HORROR ATMOSPHERE
-═══════════════════════════════════════════════════════ */
+function showError(msg) {
+  const el = document.createElement('div');
+  el.style.cssText = 'color:#ff4444;font-size:0.75rem;padding:4px 24px;font-family:monospace;opacity:0.8;';
+  el.textContent = '⚠ ' + msg;
+  document.getElementById('messages').appendChild(el);
+  document.getElementById('messages').scrollTop = 99999;
+}
+
+/* ═══════════════════ HORROR ATMOSPHERE ═══════════════════ */
 function updateHorrorAtmosphere() {
-  const lvl = horrorLevel / 10; // 0–1
-
-  // Background darkens and shifts red
-  const r   = Math.floor(10 + lvl * 15);
-  const g   = Math.floor(10 - lvl * 8);
-  const b   = Math.floor(10 - lvl * 8);
-  document.getElementById('chat-area').style.background =
-    `rgb(${r},${g},${b})`;
-  document.body.style.background = `rgb(${Math.max(5, r-3)},${g},${b})`;
-
-  // Vignette gets redder
-  const alpha = lvl * 0.55;
+  const lvl = horrorLevel / 10;
+  const r = Math.floor(10 + lvl * 15), g = Math.floor(10 - lvl * 8), b = Math.floor(10 - lvl * 8);
+  document.getElementById('chat-area').style.background = `rgb(${r},${g},${b})`;
+  document.body.style.background = `rgb(${Math.max(5,r-3)},${g},${b})`;
   document.getElementById('vignette').style.background =
-    `radial-gradient(ellipse at center, transparent 30%, rgba(${Math.floor(120*lvl)},0,0,${alpha}) 100%)`;
-
-  // Crack overlay appears late
-  if (horrorLevel >= 7) {
-    document.getElementById('crack-overlay').style.opacity = (horrorLevel - 7) / 3 * 0.7 + '';
-  }
-
-  // Status indicators
+    `radial-gradient(ellipse at center,transparent 30%,rgba(${Math.floor(120*lvl)},0,0,${lvl*0.55}) 100%)`;
+  if (horrorLevel >= 7)
+    document.getElementById('crack-overlay').style.opacity = ((horrorLevel - 7) / 3 * 0.7) + '';
   if (horrorLevel >= 5) {
     document.getElementById('header-status').textContent = 'her zaman burada';
     document.getElementById('header-status').classList.add('danger');
@@ -1025,85 +605,49 @@ function updateHorrorAtmosphere() {
     document.getElementById('header-status').textContent = 'yakınlarda';
     document.getElementById('sidebar-status').textContent = 'yakınlarda';
   }
-
-  // Scanline intensity
-  document.documentElement.style.setProperty('--scanline-opacity', 0.03 + lvl * 0.08 + '');
 }
 
-/* ═══════════════════════════════════════════════════════
-   GLITCH EFFECT
-═══════════════════════════════════════════════════════ */
+/* ═══════════════════ GLITCH ═══════════════════ */
 function triggerGlitch() {
   const app   = document.getElementById('app');
   const clone = document.getElementById('glitch-clone');
-
-  // Random red/blue flash
-  const colors = ['#ff003c', '#00ffe1', '#ff7700'];
-  clone.style.background = colors[Math.floor(Math.random() * colors.length)];
-  clone.style.mixBlendMode = 'hard-light';
-
+  clone.style.background = ['#ff003c','#00ffe1','#ff7700'][Math.floor(Math.random()*3)];
   app.classList.add('glitch-active');
   clone.style.opacity = '0.35';
-
-  // Screen flash
-  document.body.style.transition = 'none';
   document.body.style.filter = 'brightness(1.8) contrast(1.4)';
-
   setTimeout(() => {
     app.classList.remove('glitch-active');
     clone.style.opacity = '0';
     document.body.style.filter = '';
-    document.body.style.transition = '';
   }, 120);
-
-  // Extra mini-glitches
   if (horrorLevel >= 4) {
     setTimeout(() => {
       clone.style.opacity = '0.2';
-      clone.style.transform = `translate(${(Math.random()-0.5)*10}px, ${(Math.random()-0.5)*4}px)`;
-      setTimeout(() => { clone.style.opacity = '0'; clone.style.transform = ''; }, 60);
+      clone.style.transform = `translate(${(Math.random()-.5)*10}px,${(Math.random()-.5)*4}px)`;
+      setTimeout(() => { clone.style.opacity='0'; clone.style.transform=''; }, 60);
     }, 80);
   }
 }
 
-/* ═══════════════════════════════════════════════════════
-   TYPING INDICATOR
-═══════════════════════════════════════════════════════ */
+/* ═══════════════════ TYPING ═══════════════════ */
 function showTyping(show) {
   const ind = document.getElementById('typing-indicator');
   ind.style.display = show ? 'flex' : 'none';
-  if (show) {
-    const msgs = document.getElementById('messages');
-    msgs.scrollTop = msgs.scrollHeight;
-  }
+  if (show) document.getElementById('messages').scrollTop = 99999;
 }
 
-/* ═══════════════════════════════════════════════════════
-   HELPERS
-═══════════════════════════════════════════════════════ */
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-/* ═══════════════════════════════════════════════════════
-   INPUT HANDLING
-═══════════════════════════════════════════════════════ */
+/* ═══════════════════ INPUT EVENTS ═══════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
   const inp = document.getElementById('msg-input');
-
-  // Auto-resize textarea
   inp.addEventListener('input', function() {
     this.style.height = 'auto';
     this.style.height = Math.min(this.scrollHeight, 140) + 'px';
   });
-
-  // Enter to send (Shift+Enter for newline)
   inp.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   });
-
-  // Random ambient sounds simulation (visual only — subtle title flicker)
   setInterval(() => {
     if (horrorLevel >= 4 && Math.random() < 0.15) {
       const orig = document.title;
@@ -1111,13 +655,10 @@ document.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => { document.title = orig; }, 800);
     }
   }, 8000);
-
-  // Occasional random micro-glitch at high horror
   setInterval(() => {
     if (horrorLevel >= 7 && Math.random() < 0.2) triggerGlitch();
   }, 12000);
 });
 </script>
-
 </body>
 </html>
