@@ -5,7 +5,7 @@
 
 /* ── STATE ──────────────────────────────────── */
 const FIREBASE_CONFIG = {
-  apiKey:            'AIzaSyAYCLJrX3TTGD7qulT-k1zx7y_-w_fayf8',
+  apiKey:            'AIzaSyBIkTaWiKQMQ4RBlLDSbGCs7xxig_XiL88',
   authDomain:        'horroredchatgame.firebaseapp.com',
   projectId:         'horroredchatgame',
   storageBucket:     'horroredchatgame.firebasestorage.app',
