@@ -1,5 +1,5 @@
 const https = require('https');
-const GEMINI_KEY = 'AIzaSyAk_0gZYzAUdipC7jwpIZa23JOL2ETcjII';
+const GEMINI_KEY = '';
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
