@@ -3,430 +3,154 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bağlantı — Mesajlaşma</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<title>Bağlantı</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
 <style>
-/* ══════════════════════════════════════
-   VARIABLES & RESET
-══════════════════════════════════════ */
 :root {
-  --bg-base:        #0d0d0d;
-  --bg-sidebar:     #111111;
-  --bg-chat:        #0a0a0a;
-  --bg-bubble-ai:   #1a1a1a;
-  --bg-bubble-user: #1a3a5c;
-  --bg-input:       #141414;
-  --accent:         #2d6cdf;
-  --accent-glow:    rgba(45,108,223,0.15);
-  --text-primary:   #e8e8e8;
-  --text-secondary: #6b6b6b;
-  --border:         rgba(255,255,255,0.06);
+  --bg:    #0a0a0a;
+  --side:  #101010;
+  --bai:   #1a1a1a;
+  --buser: #1a3a5c;
+  --inp:   #141414;
+  --acc:   #2d6cdf;
+  --p:     #e8e8e8;
+  --s:     #666;
+  --br:    rgba(255,255,255,.06);
 }
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--p);height:100vh;display:flex;overflow:hidden}
+body::after{content:'';position:fixed;inset:0;z-index:999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.05) 2px,rgba(0,0,0,.05) 4px);pointer-events:none;opacity:.04}
 
-body {
-  font-family: 'DM Sans', sans-serif;
-  background: var(--bg-base);
-  color: var(--text-primary);
-  height: 100vh;
-  display: flex;
-  overflow: hidden;
-  position: relative;
-}
+@keyframes gin-left  {from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+@keyframes gin-right {from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:none}}
+@keyframes tdots     {0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
+@keyframes flicker   {0%,100%{opacity:1}50%{opacity:.8}}
+@keyframes pulse-r   {0%,100%{box-shadow:0 0 0 0 rgba(200,0,0,0)}50%{box-shadow:0 0 28px 6px rgba(200,0,0,.25)}}
+@keyframes gcolor    {0%{filter:none}10%{filter:hue-rotate(180deg) saturate(3) brightness(1.5)}30%{filter:hue-rotate(90deg) saturate(5) contrast(2)}70%{filter:none}100%{filter:none}}
+@keyframes shake     {0%,100%{transform:none}20%{transform:translateX(-4px) rotate(-.5deg)}40%{transform:translateX(4px)}60%{transform:translateX(-2px)}80%{transform:translateX(2px)}}
 
-/* Scanlines */
-body::after {
-  content: '';
-  position: fixed; inset: 0; z-index: 999;
-  background: repeating-linear-gradient(
-    0deg, transparent, transparent 2px,
-    rgba(0,0,0,0.05) 2px, rgba(0,0,0,0.05) 4px
-  );
-  pointer-events: none;
-  opacity: 0.04;
-}
+.glitch-active{animation:gcolor .12s steps(1) forwards,shake .12s ease forwards!important}
+#gclone{position:fixed;inset:0;z-index:998;pointer-events:none;opacity:0;mix-blend-mode:hard-light}
+#vignette{position:fixed;inset:0;z-index:997;pointer-events:none;background:radial-gradient(ellipse at center,transparent 40%,rgba(100,0,0,0) 100%);transition:background 5s ease}
+#crack{position:fixed;inset:0;z-index:996;pointer-events:none;opacity:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cpath d='M400 300 L370 180 L340 80' stroke='%23cc000044' stroke-width='1' fill='none'/%3E%3Cpath d='M400 300 L460 200 L500 90' stroke='%23cc000033' stroke-width='.5' fill='none'/%3E%3Cpath d='M400 300 L350 420 L320 520' stroke='%23cc000044' stroke-width='1' fill='none'/%3E%3C/svg%3E");background-size:cover;transition:opacity 4s ease}
 
-/* ══════════════════════════════════════
-   ANIMATIONS
-══════════════════════════════════════ */
-@keyframes glitch-color {
-  0%   { filter: none; }
-  10%  { filter: hue-rotate(180deg) saturate(3) brightness(1.5); }
-  20%  { filter: none; }
-  30%  { filter: hue-rotate(90deg) saturate(5) brightness(0.8) contrast(2); }
-  50%  { filter: invert(0.1) hue-rotate(270deg); }
-  70%  { filter: none; }
-  80%  { filter: hue-rotate(180deg) saturate(2) brightness(1.3); }
-  100% { filter: none; }
-}
-@keyframes shake {
-  0%,100% { transform: translateX(0); }
-  20% { transform: translateX(-4px) rotate(-0.5deg); }
-  40% { transform: translateX(4px) rotate(0.5deg); }
-  60% { transform: translateX(-2px); }
-  80% { transform: translateX(2px); }
-}
-@keyframes flicker {
-  0%,100% { opacity: 1; }
-  50%  { opacity: 0.85; }
-  75%  { opacity: 0.92; }
-}
-@keyframes float-in-left {
-  from { opacity: 0; transform: translateX(-16px) translateY(4px); }
-  to   { opacity: 1; transform: translateX(0) translateY(0); }
-}
-@keyframes float-in-right {
-  from { opacity: 0; transform: translateX(16px) translateY(4px); }
-  to   { opacity: 1; transform: translateX(0) translateY(0); }
-}
-@keyframes typing-dots {
-  0%,60%,100% { transform: translateY(0); opacity: 0.4; }
-  30% { transform: translateY(-5px); opacity: 1; }
-}
-@keyframes pulse-red {
-  0%,100% { box-shadow: 0 0 0 0 rgba(200,0,0,0); }
-  50% { box-shadow: 0 0 30px 8px rgba(200,0,0,0.25); }
-}
+#app{display:flex;width:100%;height:100%;position:relative;z-index:1}
 
-.glitch-active {
-  animation: glitch-color 0.12s steps(1) forwards,
-             shake 0.12s ease forwards !important;
-}
+/* SIDEBAR */
+#sidebar{width:270px;min-width:270px;background:var(--side);border-right:1px solid var(--br);display:flex;flex-direction:column}
+#sh{padding:20px 20px 16px;border-bottom:1px solid var(--br)}
+#sh h1{font-size:1.05rem;font-weight:500;letter-spacing:-.02em}
+#sh small{font-size:.72rem;color:var(--s);font-weight:300}
+.citem{padding:13px 20px;display:flex;align-items:center;gap:13px;background:rgba(255,255,255,.04);border-left:3px solid var(--acc);position:relative}
+.citem::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(45,108,223,.12),transparent);pointer-events:none}
+.avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#1c1c1c;border:1px solid var(--br);position:relative;flex-shrink:0;overflow:hidden;font-family:'Courier Prime',monospace;font-size:1.3rem;color:#8b0000;background:radial-gradient(circle at 40% 40%,#2a0a0a,#0d0d0d)}
+.dot{position:absolute;bottom:2px;right:2px;width:10px;height:10px;border-radius:50%;background:#2ecc71;border:2px solid var(--side);animation:flicker 3s ease-in-out infinite}
+.dot.red{background:#cc2e2e;animation:flicker 1s ease-in-out infinite,pulse-r 2s ease infinite}
+.cinfo h2{font-size:.9rem;font-weight:500}
+.cinfo p{font-size:.72rem;color:var(--s);font-weight:300;margin-top:2px}
+#sfooter{margin-top:auto;padding:16px 20px;border-top:1px solid var(--br);font-size:.7rem;color:var(--s);font-weight:300;line-height:1.6}
 
-/* ══════════════════════════════════════
-   OVERLAYS
-══════════════════════════════════════ */
-#glitch-clone {
-  position: fixed; inset: 0; z-index: 998;
-  pointer-events: none; opacity: 0;
-  mix-blend-mode: hard-light;
-}
-#vignette {
-  position: fixed; inset: 0; z-index: 997;
-  pointer-events: none;
-  background: radial-gradient(ellipse at center, transparent 40%, rgba(100,0,0,0) 100%);
-  transition: background 5s ease;
-}
-#crack-overlay {
-  position: fixed; inset: 0; z-index: 996;
-  pointer-events: none; opacity: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cpath d='M400 300 L380 200 L350 150 L320 80' stroke='%23cc000033' stroke-width='1' fill='none'/%3E%3Cpath d='M400 300 L450 220 L480 180 L510 100' stroke='%23cc000022' stroke-width='0.5' fill='none'/%3E%3Cpath d='M400 300 L360 350 L330 420 L310 500' stroke='%23cc000033' stroke-width='1' fill='none'/%3E%3C/svg%3E");
-  background-size: cover;
-  transition: opacity 4s ease;
-}
+/* CHAT */
+#chat-area{flex:1;display:flex;flex-direction:column;background:var(--bg);position:relative;transition:background 6s ease}
+#chat-header{padding:15px 22px;border-bottom:1px solid var(--br);display:flex;align-items:center;gap:13px;background:rgba(255,255,255,.012);backdrop-filter:blur(10px);position:relative;z-index:10}
+#chat-header .avatar{width:36px;height:36px;font-size:1rem}
+#hname{font-size:.92rem;font-weight:500}
+#hstatus{font-size:.7rem;color:#2ecc71;font-weight:300;transition:color 2s ease}
+#hstatus.danger{color:#cc2e2e}
+#hactions{margin-left:auto;display:flex;gap:8px}
+.hbtn{width:32px;height:32px;border-radius:8px;border:1px solid var(--br);background:transparent;color:var(--s);cursor:pointer;font-size:.95rem;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.hbtn:hover{background:rgba(255,255,255,.06);color:var(--p)}
 
-/* ══════════════════════════════════════
-   LAYOUT
-══════════════════════════════════════ */
-#app {
-  display: flex; width: 100%; height: 100%;
-  position: relative; z-index: 1;
-}
+#messages{flex:1;overflow-y:auto;padding:22px;display:flex;flex-direction:column;gap:5px;scroll-behavior:smooth}
+#messages::-webkit-scrollbar{width:4px}
+#messages::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+.date-divider{text-align:center;margin:10px 0}
+.date-divider span{font-size:.68rem;color:var(--s);background:var(--bg);padding:3px 11px;border-radius:20px;border:1px solid var(--br);font-weight:300}
 
-/* ══════════════════════════════════════
-   SIDEBAR
-══════════════════════════════════════ */
-#sidebar {
-  width: 280px; min-width: 280px;
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border);
-  display: flex; flex-direction: column;
-}
-#sidebar-header {
-  padding: 20px 20px 16px;
-  border-bottom: 1px solid var(--border);
-}
-#sidebar-header h1 { font-size: 1.1rem; font-weight: 500; letter-spacing: -0.02em; }
-#sidebar-header span { font-size: 0.75rem; color: var(--text-secondary); font-weight: 300; }
+.msg-row{display:flex;align-items:flex-end;gap:7px;margin-bottom:2px}
+.msg-row.user-row{flex-direction:row-reverse}
+.msg-row .avatar{width:26px;height:26px;font-size:.75rem;flex-shrink:0;align-self:flex-end}
+.bubble{max-width:66%;padding:9px 13px;border-radius:18px;font-size:.88rem;line-height:1.55;word-break:break-word}
+.ai-bubble{background:var(--bai);border:1px solid rgba(255,255,255,.07);border-bottom-left-radius:4px;animation:gin-left .3s cubic-bezier(.34,1.56,.64,1) both}
+.user-bubble{background:var(--buser);border:1px solid rgba(45,108,223,.3);border-bottom-right-radius:4px;animation:gin-right .3s cubic-bezier(.34,1.56,.64,1) both}
+.meta{font-size:.62rem;color:var(--s);margin-top:4px;display:flex;align-items:center;gap:5px;font-weight:300}
+.user-bubble .meta{justify-content:flex-end}
+.ticks{color:#4a9eff;font-size:.72rem}
+.horror-msg{font-family:'Courier Prime',monospace;color:#cc2e2e!important;letter-spacing:.03em}
+.corrupted{filter:blur(.4px);animation:flicker .5s ease infinite}
 
-.contact-item {
-  padding: 14px 20px;
-  display: flex; align-items: center; gap: 14px;
-  cursor: pointer;
-  background: rgba(255,255,255,0.04);
-  border-left: 3px solid var(--accent);
-  position: relative;
-}
-.contact-item::after {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(90deg, var(--accent-glow), transparent);
-  pointer-events: none;
-}
-.avatar {
-  width: 44px; height: 44px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.2rem;
-  background: #1c1c1c;
-  border: 1px solid var(--border);
-  position: relative; flex-shrink: 0; overflow: hidden;
-}
-.avatar-shadow {
-  background: radial-gradient(circle at 40% 40%, #2a0a0a 0%, #0d0d0d 100%);
-  font-family: 'Courier Prime', monospace;
-  font-size: 1.4rem; color: #8b0000;
-}
-.online-dot {
-  position: absolute; bottom: 2px; right: 2px;
-  width: 10px; height: 10px; border-radius: 50%;
-  background: #2ecc71;
-  border: 2px solid var(--bg-sidebar);
-  animation: flicker 3s ease-in-out infinite;
-}
-.online-dot.red {
-  background: #cc2e2e;
-  animation: flicker 1s ease-in-out infinite, pulse-red 2s ease infinite;
-}
-.contact-info h2 { font-size: 0.92rem; font-weight: 500; letter-spacing: -0.01em; }
-.contact-info p  { font-size: 0.75rem; color: var(--text-secondary); font-weight: 300; margin-top: 2px; }
-.sidebar-footer {
-  margin-top: auto; padding: 16px 20px;
-  border-top: 1px solid var(--border);
-  font-size: 0.72rem; color: var(--text-secondary);
-  font-weight: 300; line-height: 1.6;
-}
+#typing{display:none;align-items:flex-end;gap:7px;padding:0 22px 7px;animation:gin-left .2s ease both}
+#typing .avatar{width:26px;height:26px;font-size:.75rem}
+#tbubble{background:var(--bai);border:1px solid rgba(255,255,255,.07);border-radius:18px 18px 18px 4px;padding:11px 16px;display:flex;gap:5px;align-items:center}
+.tdot{width:6px;height:6px;border-radius:50%;background:var(--s);animation:tdots 1.2s ease-in-out infinite}
+.tdot:nth-child(2){animation-delay:.2s}.tdot:nth-child(3){animation-delay:.4s}
 
-/* ══════════════════════════════════════
-   CHAT AREA
-══════════════════════════════════════ */
-#chat-area {
-  flex: 1; display: flex; flex-direction: column;
-  background: var(--bg-chat);
-  position: relative;
-  transition: background 6s ease;
-}
-#chat-header {
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; gap: 14px;
-  background: rgba(255,255,255,0.015);
-  backdrop-filter: blur(10px);
-  position: relative; z-index: 10;
-}
-#chat-header .avatar { width: 38px; height: 38px; font-size: 1rem; }
-#header-info h2 { font-size: 0.95rem; font-weight: 500; }
-#header-status  { font-size: 0.72rem; color: #2ecc71; font-weight: 300; transition: color 2s ease; }
-#header-status.danger { color: #cc2e2e; }
-#header-actions { margin-left: auto; display: flex; gap: 10px; }
-.hdr-btn {
-  width: 34px; height: 34px; border-radius: 8px;
-  border: 1px solid var(--border); background: transparent;
-  color: var(--text-secondary); cursor: pointer; font-size: 1rem;
-  display: flex; align-items: center; justify-content: center;
-  transition: all 0.2s;
-}
-.hdr-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+#input-area{padding:14px 22px;border-top:1px solid var(--br);display:flex;align-items:flex-end;gap:10px;background:rgba(255,255,255,.012);position:relative;z-index:10}
+#msg-input{flex:1;background:var(--inp);border:1px solid var(--br);border-radius:12px;padding:11px 14px;color:var(--p);font-family:'DM Sans',sans-serif;font-size:.88rem;resize:none;min-height:42px;max-height:140px;outline:none;transition:border-color .2s,box-shadow .2s;line-height:1.5;overflow-y:auto}
+#msg-input::placeholder{color:var(--s)}
+#msg-input:focus{border-color:rgba(45,108,223,.4);box-shadow:0 0 0 3px rgba(45,108,223,.08)}
+#send-btn{width:42px;height:42px;border-radius:12px;background:var(--acc);border:none;cursor:pointer;color:#fff;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+#send-btn:hover{background:#1e5ec8;transform:scale(1.04)}
+#send-btn:active{transform:scale(.96)}
+#send-btn:disabled{background:#1a1a1a;color:var(--s);cursor:not-allowed;transform:none}
 
-/* ══════════════════════════════════════
-   MESSAGES
-══════════════════════════════════════ */
-#messages {
-  flex: 1; overflow-y: auto;
-  padding: 24px;
-  display: flex; flex-direction: column; gap: 6px;
-  scroll-behavior: smooth;
-}
-#messages::-webkit-scrollbar { width: 4px; }
-#messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+#splash{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.96);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(20px)}
+#sbox{background:#0f0f0f;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:40px;width:340px;max-width:90vw;text-align:center;box-shadow:0 0 60px rgba(0,0,0,.9)}
+#sbox .ico{font-size:2.5rem;display:block;margin-bottom:14px}
+#sbox h2{font-family:'Courier Prime',monospace;letter-spacing:.1em;font-size:1.25rem;margin-bottom:8px}
+#sbox p{font-size:.8rem;color:var(--s);line-height:1.6;margin-bottom:22px}
+#sbtn{width:100%;padding:12px;background:var(--acc);border:none;border-radius:10px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:500;cursor:pointer;transition:background .2s}
+#sbtn:hover{background:#1e5ec8}
 
-.date-divider { text-align: center; margin: 12px 0; }
-.date-divider span {
-  font-size: 0.7rem; color: var(--text-secondary);
-  background: var(--bg-chat); padding: 4px 12px;
-  border-radius: 20px; border: 1px solid var(--border); font-weight: 300;
-}
-.msg-row { display: flex; margin-bottom: 2px; align-items: flex-end; gap: 8px; }
-.msg-row.user-row { flex-direction: row-reverse; }
-.msg-row .avatar  { width: 28px; height: 28px; font-size: 0.8rem; flex-shrink: 0; align-self: flex-end; }
-
-.bubble {
-  max-width: 68%; padding: 10px 14px; border-radius: 18px;
-  font-size: 0.9rem; line-height: 1.55;
-  position: relative; word-break: break-word;
-}
-.bubble.ai-bubble {
-  background: var(--bg-bubble-ai);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-bottom-left-radius: 4px;
-  animation: float-in-left 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
-}
-.bubble.user-bubble {
-  background: var(--bg-bubble-user);
-  border: 1px solid rgba(45,108,223,0.3);
-  border-bottom-right-radius: 4px;
-  animation: float-in-right 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
-}
-.bubble .meta {
-  font-size: 0.65rem; color: var(--text-secondary);
-  margin-top: 5px; display: flex; align-items: center; gap: 6px; font-weight: 300;
-}
-.bubble.user-bubble .meta { justify-content: flex-end; }
-.check-marks { color: #4a9eff; font-size: 0.75rem; }
-.horror-msg  { font-family: 'Courier Prime', monospace; color: #cc2e2e !important; letter-spacing: 0.03em; }
-.corrupted   { filter: blur(0.5px); animation: flicker 0.5s ease infinite; }
-
-/* ══════════════════════════════════════
-   TYPING
-══════════════════════════════════════ */
-#typing-indicator {
-  display: none; align-items: flex-end; gap: 8px;
-  padding: 0 24px 8px;
-  animation: float-in-left 0.2s ease both;
-}
-#typing-indicator .avatar { width: 28px; height: 28px; font-size: 0.8rem; }
-#typing-bubble {
-  background: var(--bg-bubble-ai);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 18px 18px 18px 4px;
-  padding: 12px 18px;
-  display: flex; gap: 5px; align-items: center;
-}
-.dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--text-secondary);
-  animation: typing-dots 1.2s ease-in-out infinite;
-}
-.dot:nth-child(2) { animation-delay: 0.2s; }
-.dot:nth-child(3) { animation-delay: 0.4s; }
-
-/* ══════════════════════════════════════
-   INPUT
-══════════════════════════════════════ */
-#input-area {
-  padding: 16px 24px;
-  border-top: 1px solid var(--border);
-  display: flex; align-items: flex-end; gap: 12px;
-  background: rgba(255,255,255,0.015);
-  position: relative; z-index: 10;
-}
-#msg-input {
-  flex: 1;
-  background: var(--bg-input);
-  border: 1px solid var(--border); border-radius: 12px;
-  padding: 12px 16px; color: var(--text-primary);
-  font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
-  resize: none; min-height: 44px; max-height: 140px;
-  outline: none; line-height: 1.5; overflow-y: auto;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-#msg-input::-webkit-scrollbar { width: 3px; }
-#msg-input::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
-#msg-input::placeholder { color: var(--text-secondary); }
-#msg-input:focus {
-  border-color: rgba(45,108,223,0.4);
-  box-shadow: 0 0 0 3px rgba(45,108,223,0.08);
-}
-#send-btn {
-  width: 44px; height: 44px; border-radius: 12px;
-  background: var(--accent); border: none; cursor: pointer;
-  color: #fff; font-size: 1.1rem;
-  display: flex; align-items: center; justify-content: center;
-  transition: all 0.2s; flex-shrink: 0;
-}
-#send-btn:hover  { background: #1e5ec8; transform: scale(1.04); }
-#send-btn:active { transform: scale(0.96); }
-#send-btn:disabled {
-  background: #1a1a1a; color: var(--text-secondary);
-  cursor: not-allowed; transform: none;
-}
-
-/* ══════════════════════════════════════
-   SPLASH
-══════════════════════════════════════ */
-#splash {
-  position: fixed; inset: 0; z-index: 9999;
-  background: rgba(0,0,0,0.95);
-  display: flex; align-items: center; justify-content: center;
-  backdrop-filter: blur(20px);
-}
-#splash-box {
-  background: #0f0f0f;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 16px; padding: 40px;
-  width: 360px; max-width: 90vw;
-  text-align: center;
-  box-shadow: 0 0 60px rgba(0,0,0,0.8);
-}
-#splash-box .icon { font-size: 2.5rem; margin-bottom: 16px; display: block; }
-#splash-box h2 {
-  font-family: 'Courier Prime', monospace;
-  letter-spacing: 0.1em; font-size: 1.3rem; margin-bottom: 8px;
-}
-#splash-box p {
-  font-size: 0.82rem; color: var(--text-secondary);
-  line-height: 1.6; margin-bottom: 24px;
-}
-.splash-btn {
-  width: 100%; padding: 12px;
-  background: var(--accent); border: none; border-radius: 10px;
-  color: #fff; font-family: 'DM Sans', sans-serif;
-  font-size: 0.9rem; font-weight: 500;
-  cursor: pointer; transition: background 0.2s;
-}
-.splash-btn:hover { background: #1e5ec8; }
-
-@media (max-width: 640px) {
-  #sidebar { display: none; }
-  .bubble  { max-width: 85%; }
-}
+@media(max-width:640px){#sidebar{display:none}.bubble{max-width:84%}}
 </style>
 </head>
 <body>
 
-<!-- Horror overlays -->
 <div id="vignette"></div>
-<div id="crack-overlay"></div>
-<div id="glitch-clone"></div>
+<div id="crack"></div>
+<div id="gclone"></div>
 
 <!-- Splash -->
 <div id="splash">
-  <div id="splash-box">
-    <span class="icon">◼</span>
+  <div id="sbox">
+    <span class="ico">◼</span>
     <h2>GÖLGE</h2>
-    <p>Şifreli bir bağlantı kurulmak üzere.<br>
-    <span style="font-size:0.72rem;opacity:0.5;">Mesajlaşma · Uçtan Uca Şifreli</span></p>
-    <button class="splash-btn" onclick="startApp()">Bağlan</button>
+    <p>Şifreli bir bağlantı kurulmak üzere.<br><span style="font-size:.7rem;opacity:.4">Uçtan uca şifreli</span></p>
+    <button id="sbtn" onclick="startApp()">Bağlan</button>
   </div>
 </div>
 
-<!-- App -->
 <div id="app">
-
   <!-- Sidebar -->
   <div id="sidebar">
-    <div id="sidebar-header">
+    <div id="sh">
       <h1>Bağlantı</h1>
-      <span>Mesajlaşma · Şifreli</span>
+      <small>Mesajlaşma · Şifreli</small>
     </div>
-    <div class="contact-item">
-      <div class="avatar avatar-shadow">◼
-        <div class="online-dot" id="status-dot"></div>
-      </div>
-      <div class="contact-info">
+    <div class="citem">
+      <div class="avatar">◼<div class="dot" id="sdot"></div></div>
+      <div class="cinfo">
         <h2>Gölge</h2>
-        <p id="sidebar-status">Çevrimiçi</p>
+        <p id="sstatus">Çevrimiçi</p>
       </div>
     </div>
-    <div class="sidebar-footer">
-      <em>Uçtan uca şifreleme aktif.</em><br>
-      Mesajlarınız güvende.
-    </div>
+    <div id="sfooter"><em>Uçtan uca şifreleme aktif.</em><br>Mesajlarınız güvende.</div>
   </div>
 
   <!-- Chat -->
   <div id="chat-area">
     <div id="chat-header">
-      <div class="avatar avatar-shadow">◼</div>
-      <div id="header-info">
-        <h2>Gölge</h2>
-        <div id="header-status">çevrimiçi</div>
+      <div class="avatar">◼</div>
+      <div>
+        <div id="hname">Gölge</div>
+        <div id="hstatus">çevrimiçi</div>
       </div>
-      <div id="header-actions">
-        <button class="hdr-btn">📞</button>
-        <button class="hdr-btn">ℹ️</button>
+      <div id="hactions">
+        <button class="hbtn">📞</button>
+        <button class="hbtn">ℹ️</button>
       </div>
     </div>
 
@@ -434,12 +158,10 @@ body::after {
       <div class="date-divider"><span>Bugün</span></div>
     </div>
 
-    <div id="typing-indicator">
-      <div class="avatar avatar-shadow">◼</div>
-      <div id="typing-bubble">
-        <div class="dot"></div>
-        <div class="dot"></div>
-        <div class="dot"></div>
+    <div id="typing">
+      <div class="avatar">◼</div>
+      <div id="tbubble">
+        <div class="tdot"></div><div class="tdot"></div><div class="tdot"></div>
       </div>
     </div>
 
@@ -448,10 +170,8 @@ body::after {
       <button id="send-btn" onclick="sendMessage()">➤</button>
     </div>
   </div>
-
 </div>
 
-<!-- Logic -->
 <script src="script.js"></script>
 </body>
 </html>
