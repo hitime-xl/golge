@@ -1,7 +1,5 @@
 const https = require('https');
-
-// Gemini API key — buraya yaz ya da Vercel env'e GEMINI_API_KEY olarak ekle
-const GEMINI_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_KEY = 'AIzaSyAk_0gZYzAUdipC7jwpIZa23JOL2ETcjII';
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -23,10 +21,7 @@ module.exports = async function handler(req, res) {
     hostname: 'generativelanguage.googleapis.com',
     path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(payload)
-    }
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
   };
 
   try {
@@ -36,23 +31,18 @@ module.exports = async function handler(req, res) {
         response.on('data', c => data += c);
         response.on('end', () => {
           try { resolve({ status: response.statusCode, json: JSON.parse(data) }); }
-          catch (e) { reject(new Error('Parse hatası: ' + data.slice(0, 300))); }
+          catch(e) { reject(new Error('Parse: ' + data.slice(0,200))); }
         });
       });
       r.on('error', reject);
       r.write(payload);
       r.end();
     });
-
-    if (result.status !== 200) {
-      return res.status(result.status).json({ error: result.json?.error?.message || 'Gemini hatası' });
-    }
-
+    if (result.status !== 200) return res.status(result.status).json({ error: result.json?.error?.message || 'Gemini hatası' });
     const text = result.json?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) return res.status(500).json({ error: 'Boş yanıt' });
     return res.status(200).json({ text });
-
-  } catch (e) {
+  } catch(e) {
     return res.status(500).json({ error: e.message });
   }
 };
