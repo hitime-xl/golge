@@ -6,9 +6,9 @@
 <title>Bağlantı — Mesajlaşma</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
-<!-- Firebase Compat SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<!-- Firebase Compat SDK v9 (compat sadece 9.x'te var) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <style>
   /* ═══════════════════════════════
@@ -868,8 +868,13 @@ async function sendMessage() {
     receiveMessage(reply);
   } catch(e) {
     showTyping(false);
-    receiveMessage('...');
     console.error('Gemini hatası:', e);
+    // Hata mesajını görünür kıl (debug için)
+    const errBubble = document.createElement('div');
+    errBubble.style.cssText = 'color:#ff4444;font-size:0.75rem;padding:8px 24px;font-family:monospace;opacity:0.8;';
+    errBubble.textContent = '⚠ ' + e.message;
+    document.getElementById('messages').appendChild(errBubble);
+    document.getElementById('messages').scrollTop = 99999;
   }
 
   document.getElementById('send-btn').disabled = false;
@@ -880,48 +885,43 @@ async function sendMessage() {
    GEMINI API
 ═══════════════════════════════════════════════════════ */
 async function callGemini(userText) {
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
-
-  // Build contents — inject system prompt as first user turn if history is short
-  const contents = [];
-
-  // System instruction via first turn trick
-  if (chatHistory.length <= 2) {
-    contents.push({
-      role: 'user',
-      parts: [{ text: buildSystemPrompt() + '\n\nAnladın mı?' }]
-    });
-    contents.push({
-      role: 'model',
-      parts: [{ text: 'Anlıyorum. Ben buradayım.' }]
-    });
-  }
-
-  // Full history
-  contents.push(...chatHistory);
+  // gemini-2.0-flash-exp destekliyor system_instruction
+  const model    = 'gemini-3-flash-preview';
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`;
 
   const body = {
-    contents,
+    system_instruction: {
+      parts: [{ text: buildSystemPrompt() }]
+    },
+    contents: chatHistory,
     generationConfig: {
-      temperature:     0.92,
-      maxOutputTokens: 200,
+      temperature:     1.2,
+      maxOutputTokens: 250,
       topP:            0.95
     }
   };
 
-  const res  = await fetch(endpoint, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body)
-  });
+  let res;
+  try {
+    res = await fetch(endpoint, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(body)
+    });
+  } catch(networkErr) {
+    throw new Error('Ağ hatası — CORS veya bağlantı sorunu: ' + networkErr.message);
+  }
 
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error?.message || 'API hatası');
+    let msg = `HTTP ${res.status}`;
+    try { const j = await res.json(); msg = j.error?.message || msg; } catch(_) {}
+    throw new Error(msg);
   }
 
   const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || '...';
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Boş yanıt: ' + JSON.stringify(data).slice(0, 200));
+  return text;
 }
 
 /* ═══════════════════════════════════════════════════════
