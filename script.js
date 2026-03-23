@@ -30,17 +30,24 @@ KURALLAR: 1-3 cümle. Türkçe. Asla "Ben AI\'yım" deme.`;
 
 /* ═══════════════════ BAŞLAT ═══════════════════ */
 async function startApp() {
-  document.getElementById('splash').style.display = 'none';
   try {
-    const app = firebase.initializeApp(FIREBASE_CONFIG, 'golge');
-    db = firebase.firestore(app);
-    console.log('Firebase ✓');
-  } catch (e) { console.warn('Firebase:', e.message); }
+    document.getElementById('splash').style.display = 'none';
 
-  await loadHistory();
+    // Firebase
+    try {
+      const app = firebase.initializeApp(FIREBASE_CONFIG, 'golge');
+      db = firebase.firestore(app);
+      console.log('Firebase ✓');
+    } catch (e) { console.warn('Firebase:', e.message); }
 
-  if (messageCount === 0) {
-    setTimeout(() => receiveMessage('Uzun zamandır bekliyordum. Sonunda açtın.'), 1400);
+    await loadHistory();
+
+    if (messageCount === 0) {
+      setTimeout(() => receiveMessage('Uzun zamandır bekliyordum. Sonunda açtın.'), 1400);
+    }
+  } catch(e) {
+    alert('Hata: ' + e.message);
+    console.error(e);
   }
 }
 
@@ -236,6 +243,10 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 /* ═══════════════════ EVENTLER ═══════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
+  // Butonlar
+  document.getElementById('sbtn').addEventListener('click', startApp);
+  document.getElementById('send-btn').addEventListener('click', sendMessage);
+
   const inp = document.getElementById('msg-input');
   inp.addEventListener('input', function() {
     this.style.height = 'auto';
