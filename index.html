@@ -154,13 +154,13 @@ document.getElementById('sbtn').addEventListener('click', function() {
   try {
     if (typeof firebase !== 'undefined') {
       const app = firebase.initializeApp({
-        apiKey: 'AIzaSyAYCLJrX3TTGD7qulT-k1zx7y_-w_fayf8',
-        authDomain: 'horroredchatgame.firebaseapp.com',
-        projectId: 'horroredchatgame',
-        storageBucket: 'horroredchatgame.firebasestorage.app',
-        messagingSenderId: '786215282899',
-        appId: '1:786215282899:web:37a9dda26e16cd1a544c26'
-      }, 'golge');
+        apiKey: '',
+        authDomain: '',
+        projectId: '',
+        storageBucket: '',
+        messagingSenderId: '',
+        appId: '6'
+      }, '');
       db = firebase.firestore(app);
     }
   } catch(e) { console.warn('Firebase:', e.message); }
@@ -341,8 +341,8 @@ setInterval(() => { if (horrorLevel>=7 && Math.random()<.2) glitch(); }, 12000);
 </script>
 
 <!-- Firebase — opsiyonel, yoksa da çalışır -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src=""></script>
+<script src=""></script>
 
 </body>
 </html>
