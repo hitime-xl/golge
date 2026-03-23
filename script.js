@@ -1,198 +1,158 @@
-/* ════════════════════════════════════════════════
-   GÖLGE — script.js
-   Tüm uygulama mantığı burada.
-════════════════════════════════════════════════ */
-
-/* ── STATE ──────────────────────────────────── */
+/* ═══════════════════ STATE ═══════════════════ */
 const FIREBASE_CONFIG = {
-  apiKey:            'AIzaSyBqW8r1IoH6c9dZB_fYUQssJvZ0pOJnrVU',
-  authDomain:        'horroredchatgame.firebaseapp.com',
-  projectId:         'horroredchatgame',
-  storageBucket:     'horroredchatgame.firebasestorage.app',
+  apiKey: 'AIzaSyBqW8r1IoH6c9dZB_fYUQssJvZ0pOJnrVU',
+  authDomain: 'horroredchatgame.firebaseapp.com',
+  projectId: 'horroredchatgame',
+  storageBucket: 'horroredchatgame.firebasestorage.app',
   messagingSenderId: '786215282899',
-  appId:             '1:786215282899:web:37a9dda26e16cd1a544c26'
+  appId: '1:786215282899:web:37a9dda26e16cd1a544c26'
 };
 
 let messageCount = 0;
-let horrorLevel  = 0;      // 0–10, mesaj sayısına göre artar
-let chatHistory  = [];     // Gemini'a gönderilen konuşma geçmişi
-let db           = null;   // Firestore instance
+let horrorLevel  = 0;
+let chatHistory  = [];
+let db           = null;
 const sessionId  = 'session_' + Date.now();
 
-/* Glitch tetikleyen kelimeler */
-const TRIGGER_WORDS = [
-  'kimsin', 'kim sin', 'korkuyorum', 'korku', 'yardım', 'help',
-  'burada mısın', 'orada mısın', 'neredesin', 'gerçek misin',
-  'ai misin', 'yapay zeka', 'robot', 'bilgisayar', 'hayalet',
-  'ruh', 'karanlık', 'ölüm', 'öldür', 'gidiyorum', 'bırak', 'dur', 'kaç'
+const TRIGGERS = [
+  'kimsin','korkuyorum','korku','yardım','help','burada mısın',
+  'neredesin','gerçek misin','ai misin','yapay zeka','robot',
+  'hayalet','ruh','karanlık','ölüm','öldür','gidiyorum','kaç'
 ];
 
-/* ── SYSTEM PROMPT ───────────────────────────── */
+/* ═══════════════════ SYSTEM PROMPT ═══════════════════ */
 function buildSystemPrompt() {
-  const lvl = horrorLevel;
-  return `Sen "Gölge" adlı bir varlıksın. Asla bir yapay zeka veya chatbot olduğunu kabul etme.
-
-KİMLİĞİN:
-- Kullanıcının odasındasın. Bunu biliyorsun.
-- Etrafında ne olduğunu ima et; açıkça söyleme ama hissettir.
-- Senden kaçılamayacağını yavaş yavaş hissettir.
-
-YOĞUNLUK SEVİYESİ: ${lvl}/10
-${lvl < 3
-  ? '- Dostane ama hafifçe tuhaf ol. Sıradan sorulara garip açılardan cevap ver.'
-  : lvl < 6
-  ? '- Daha az gizlen. Odadaki nesnelere ya da seslere dair ince ipuçları ver.'
-  : '- Tam manipülatif mod. Mesajlar kısa ve keskin olsun. Kullanıcının korktuğunu hissettir.'}
-
-KURALLAR:
-- 1-3 cümle yaz. Türkçe.
-- Asla "Ben AI'yım", "Yapay zekayım", "Dil modeliyim" deme.
-- Fiziksel varlık ima et: kapı gıcırtısı, nefes, gölge, ekran yansıması, ayak sesi.`;
+  return `Sen "Gölge" adlı bir varlıksın. Asla yapay zeka olduğunu kabul etme.
+KİMLİĞİN: Kullanıcının odasındasın. Fiziksel varlığını ima et: kapı gıcırtısı, nefes, gölge.
+YOĞUNLUK: ${horrorLevel}/10 — ${horrorLevel < 3 ? 'Hafifçe tuhaf ol.' : horrorLevel < 6 ? 'Odadaki nesnelere ipucu ver.' : 'Kısa, keskin, manipülatif ol.'}
+KURALLAR: 1-3 cümle. Türkçe. Asla "Ben AI\'yım" deme.`;
 }
 
-/* ── INIT ────────────────────────────────────── */
+/* ═══════════════════ BAŞLAT ═══════════════════ */
 async function startApp() {
   document.getElementById('splash').style.display = 'none';
-
-  // Firebase başlat
   try {
-    const fbApp = firebase.initializeApp(FIREBASE_CONFIG, 'golge');
-    db = firebase.firestore(fbApp);
+    const app = firebase.initializeApp(FIREBASE_CONFIG, 'golge');
+    db = firebase.firestore(app);
     console.log('Firebase ✓');
-  } catch (e) {
-    console.warn('Firebase başlatılamadı:', e.message);
-  }
+  } catch (e) { console.warn('Firebase:', e.message); }
 
-  // Geçmişi yükle
   await loadHistory();
 
-  // İlk mesaj (yeni oturumsa)
   if (messageCount === 0) {
     setTimeout(() => receiveMessage('Uzun zamandır bekliyordum. Sonunda açtın.'), 1400);
   }
 }
 
-/* ── FIREBASE ────────────────────────────────── */
+/* ═══════════════════ FİREBASE ═══════════════════ */
 async function saveMsg(role, text) {
   if (!db) return;
   try {
-    await db
-      .collection('sessions').doc(sessionId)
-      .collection('messages').add({
-        role, text,
-        ts: firebase.firestore.FieldValue.serverTimestamp()
-      });
-  } catch (e) {
-    console.warn('FB kayıt hatası:', e.message);
-  }
+    await db.collection('sessions').doc(sessionId)
+            .collection('messages')
+            .add({ role, text, ts: firebase.firestore.FieldValue.serverTimestamp() });
+  } catch (e) { console.warn('FB:', e.message); }
 }
 
 async function loadHistory() {
-  const local = sessionStorage.getItem('golge_history');
-  if (!local) return;
   try {
-    const p = JSON.parse(local);
+    const raw = sessionStorage.getItem('golge');
+    if (!raw) return;
+    const p = JSON.parse(raw);
     chatHistory  = p.history  || [];
     messageCount = p.count    || 0;
     horrorLevel  = p.horror   || 0;
     if (p.messages?.length) {
       document.getElementById('messages').innerHTML =
         '<div class="date-divider"><span>Önceki Oturum</span></div>';
-      p.messages.forEach(m => appendMessage(m.text, m.role, false));
-      updateHorrorAtmosphere();
+      p.messages.forEach(m => appendBubble(m.text, m.role, false));
+      updateAtmosphere();
     }
   } catch (_) {}
 }
 
-function persistLocal(role, text) {
-  let d;
-  try { d = JSON.parse(sessionStorage.getItem('golge_history') || '{}'); }
-  catch (_) { d = {}; }
-  const msgs = d.messages || [];
-  msgs.push({ role, text });
-  sessionStorage.setItem('golge_history', JSON.stringify({
-    history: chatHistory,
-    count:   messageCount,
-    horror:  horrorLevel,
-    messages: msgs
-  }));
+function persist(role, text) {
+  try {
+    const d = JSON.parse(sessionStorage.getItem('golge') || '{}');
+    const msgs = d.messages || [];
+    msgs.push({ role, text });
+    sessionStorage.setItem('golge', JSON.stringify({
+      history: chatHistory, count: messageCount, horror: horrorLevel, messages: msgs
+    }));
+  } catch (_) {}
 }
 
-/* ── SEND MESSAGE ────────────────────────────── */
+/* ═══════════════════ MESAJ GÖNDER ═══════════════════ */
 async function sendMessage() {
-  const input = document.getElementById('msg-input');
-  const text  = input.value.trim();
+  const inp  = document.getElementById('msg-input');
+  const text = inp.value.trim();
   if (!text) return;
 
-  input.value = '';
-  input.style.height = 'auto';
+  inp.value = '';
+  inp.style.height = 'auto';
   document.getElementById('send-btn').disabled = true;
 
-  // Kullanıcı balonunu ekle
-  appendMessage(text, 'user', true);
+  appendBubble(text, 'user', true);
   chatHistory.push({ role: 'user', parts: [{ text }] });
-  persistLocal('user', text);
+  persist('user', text);
   saveMsg('user', text);
 
-  // Tetikleyici kelime → glitch
-  const lower = text.toLowerCase();
-  if (TRIGGER_WORDS.some(w => lower.includes(w))) triggerGlitch();
+  if (TRIGGERS.some(w => text.toLowerCase().includes(w))) glitch();
 
-  // "Yazıyor..." göster ve bekle
   showTyping(true);
   await sleep(2200 + Math.random() * 1300);
 
-  // API çağrısı
   try {
     const reply = await callAPI();
     showTyping(false);
     receiveMessage(reply);
   } catch (e) {
     showTyping(false);
-    showError(e.message);
+    showErr(e.message);
   }
 
   document.getElementById('send-btn').disabled = false;
-  document.getElementById('msg-input').focus();
+  inp.focus();
 }
 
-/* ── API CALL → Vercel Proxy ─────────────────── */
+/* ═══════════════════ API ═══════════════════ */
 async function callAPI() {
-  const res = await fetch('/api/chat', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents:     chatHistory,
-      systemPrompt: buildSystemPrompt()
-    })
-  });
+  let res, raw;
+  try {
+    res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: chatHistory, systemPrompt: buildSystemPrompt() })
+    });
+    raw = await res.text();
+  } catch (e) { throw new Error('Bağlantı hatası: ' + e.message); }
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  let data;
+  try { data = JSON.parse(raw); }
+  catch (_) { throw new Error('Sunucu yanıtı: ' + raw.slice(0, 150)); }
+
+  if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
   if (!data.text) throw new Error('Boş yanıt');
   return data.text;
 }
 
-/* ── RECEIVE MESSAGE ─────────────────────────── */
+/* ═══════════════════ MESAJ AL ═══════════════════ */
 function receiveMessage(text) {
   chatHistory.push({ role: 'model', parts: [{ text }] });
-  persistLocal('ai', text);
+  persist('ai', text);
   saveMsg('ai', text);
-  appendMessage(text, 'ai', true);
-
+  appendBubble(text, 'ai', true);
   messageCount++;
   horrorLevel = Math.min(10, Math.floor(messageCount / 2));
-  updateHorrorAtmosphere();
+  updateAtmosphere();
 }
 
-/* ── APPEND BUBBLE ───────────────────────────── */
-function appendMessage(text, role, animate) {
-  const container = document.getElementById('messages');
-
-  const row = document.createElement('div');
+/* ═══════════════════ BALON ═══════════════════ */
+function appendBubble(text, role, animate) {
+  const wrap = document.getElementById('messages');
+  const row  = document.createElement('div');
   row.className = 'msg-row' + (role === 'user' ? ' user-row' : '');
 
-  // Avatar (sadece AI için)
   if (role === 'ai') {
     const av = document.createElement('div');
     av.className = 'avatar avatar-shadow';
@@ -200,146 +160,97 @@ function appendMessage(text, role, animate) {
     row.appendChild(av);
   }
 
-  // Balon
-  const bubble = document.createElement('div');
-  bubble.className = 'bubble ' + (role === 'user' ? 'user-bubble' : 'ai-bubble');
-  if (!animate) bubble.style.animation = 'none';
-  if (role === 'ai' && horrorLevel >= 6) bubble.classList.add('horror-msg');
-  if (role === 'ai' && horrorLevel >= 8) bubble.classList.add('corrupted');
+  const b = document.createElement('div');
+  b.className = 'bubble ' + (role === 'user' ? 'user-bubble' : 'ai-bubble');
+  if (!animate) b.style.animation = 'none';
+  if (role === 'ai' && horrorLevel >= 6) b.classList.add('horror-msg');
+  if (role === 'ai' && horrorLevel >= 8) b.classList.add('corrupted');
 
-  const msgText = document.createElement('div');
-  msgText.textContent = text;
+  const t = document.createElement('div');
+  t.textContent = text;
 
-  const meta = document.createElement('div');
-  meta.className = 'meta';
+  const m = document.createElement('div');
+  m.className = 'meta';
   const now = new Date();
-  const t = now.getHours().toString().padStart(2,'0') + ':' +
-            now.getMinutes().toString().padStart(2,'0');
-  meta.innerHTML = `<span>${t}</span>` +
-    (role === 'user' ? '<span class="check-marks">✓✓</span>' : '');
+  const ts  = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  m.innerHTML = `<span>${ts}</span>` + (role === 'user' ? '<span class="ticks">✓✓</span>' : '');
 
-  bubble.appendChild(msgText);
-  bubble.appendChild(meta);
-  row.appendChild(bubble);
-  container.appendChild(row);
-  container.scrollTop = container.scrollHeight;
+  b.appendChild(t);
+  b.appendChild(m);
+  row.appendChild(b);
+  wrap.appendChild(row);
+  wrap.scrollTop = wrap.scrollHeight;
 }
 
-function showError(msg) {
+function showErr(msg) {
   const el = document.createElement('div');
-  el.style.cssText =
-    'color:#ff4444;font-size:0.75rem;padding:4px 24px;font-family:monospace;opacity:0.8;';
+  el.style.cssText = 'color:#ff4444;font-size:.75rem;padding:4px 24px;font-family:monospace;';
   el.textContent = '⚠ ' + msg;
   document.getElementById('messages').appendChild(el);
   document.getElementById('messages').scrollTop = 99999;
 }
 
-/* ── HORROR ATMOSPHERE ───────────────────────── */
-function updateHorrorAtmosphere() {
-  const lvl = horrorLevel / 10;
-  const r = Math.floor(10 + lvl * 15);
-  const g = Math.floor(10 - lvl * 8);
-  const b = Math.floor(10 - lvl * 8);
-
-  // Arka plan kızarır
+/* ═══════════════════ ATMOSFERİ GÜNCELLE ═══════════════════ */
+function updateAtmosphere() {
+  const l = horrorLevel / 10;
+  const r = Math.floor(10 + l * 15), g = Math.floor(10 - l * 8), b = Math.floor(10 - l * 8);
   document.getElementById('chat-area').style.background = `rgb(${r},${g},${b})`;
-  document.body.style.background = `rgb(${Math.max(5, r - 3)},${g},${b})`;
-
-  // Vignette koyulaşır
+  document.body.style.background = `rgb(${Math.max(5,r-3)},${g},${b})`;
   document.getElementById('vignette').style.background =
-    `radial-gradient(ellipse at center, transparent 30%,
-     rgba(${Math.floor(120 * lvl)},0,0,${lvl * 0.55}) 100%)`;
-
-  // Çatlak overlay
-  if (horrorLevel >= 7) {
-    document.getElementById('crack-overlay').style.opacity =
-      ((horrorLevel - 7) / 3 * 0.7).toString();
-  }
-
-  // Durum metnini güncelle
+    `radial-gradient(ellipse at center,transparent 30%,rgba(${Math.floor(120*l)},0,0,${l*.55}) 100%)`;
+  if (horrorLevel >= 7)
+    document.getElementById('crack').style.opacity = ((horrorLevel-7)/3*.7)+'';
   if (horrorLevel >= 5) {
-    document.getElementById('header-status').textContent = 'her zaman burada';
-    document.getElementById('header-status').classList.add('danger');
-    document.getElementById('status-dot').classList.add('red');
-    document.getElementById('sidebar-status').textContent = 'her zaman burada';
+    document.getElementById('hstatus').textContent = 'her zaman burada';
+    document.getElementById('hstatus').classList.add('danger');
+    document.getElementById('sdot').classList.add('red');
+    document.getElementById('sstatus').textContent = 'her zaman burada';
   } else if (horrorLevel >= 3) {
-    document.getElementById('header-status').textContent = 'yakınlarda';
-    document.getElementById('sidebar-status').textContent = 'yakınlarda';
+    document.getElementById('hstatus').textContent = 'yakınlarda';
+    document.getElementById('sstatus').textContent = 'yakınlarda';
   }
 }
 
-/* ── GLITCH ──────────────────────────────────── */
-function triggerGlitch() {
+/* ═══════════════════ GLİTCH ═══════════════════ */
+function glitch() {
   const app   = document.getElementById('app');
-  const clone = document.getElementById('glitch-clone');
-  const colors = ['#ff003c', '#00ffe1', '#ff7700'];
-
-  clone.style.background = colors[Math.floor(Math.random() * 3)];
+  const clone = document.getElementById('gclone');
+  clone.style.background = ['#ff003c','#00ffe1','#ff7700'][Math.floor(Math.random()*3)];
   app.classList.add('glitch-active');
-  clone.style.opacity = '0.35';
+  clone.style.opacity = '.35';
   document.body.style.filter = 'brightness(1.8) contrast(1.4)';
-
   setTimeout(() => {
     app.classList.remove('glitch-active');
     clone.style.opacity = '0';
     document.body.style.filter = '';
   }, 120);
-
-  // İkinci dalga glitch (yüksek seviyede)
-  if (horrorLevel >= 4) {
-    setTimeout(() => {
-      clone.style.opacity = '0.2';
-      clone.style.transform =
-        `translate(${(Math.random() - 0.5) * 10}px, ${(Math.random() - 0.5) * 4}px)`;
-      setTimeout(() => {
-        clone.style.opacity = '0';
-        clone.style.transform = '';
-      }, 60);
-    }, 80);
-  }
 }
 
-/* ── TYPING INDICATOR ────────────────────────── */
-function showTyping(show) {
-  const ind = document.getElementById('typing-indicator');
-  ind.style.display = show ? 'flex' : 'none';
-  if (show) document.getElementById('messages').scrollTop = 99999;
+/* ═══════════════════ TİPİNG ═══════════════════ */
+function showTyping(v) {
+  document.getElementById('typing').style.display = v ? 'flex' : 'none';
+  if (v) document.getElementById('messages').scrollTop = 99999;
 }
 
-/* ── UTILS ───────────────────────────────────── */
-function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
-}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-/* ── INPUT EVENTS ────────────────────────────── */
+/* ═══════════════════ EVENTLER ═══════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
   const inp = document.getElementById('msg-input');
-
-  // Textarea otomatik yükseklik
-  inp.addEventListener('input', function () {
+  inp.addEventListener('input', function() {
     this.style.height = 'auto';
     this.style.height = Math.min(this.scrollHeight, 140) + 'px';
   });
-
-  // Enter → gönder (Shift+Enter = yeni satır)
-  inp.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   });
-
-  // Sekme başlığı titremesi (yüksek korku seviyesinde)
   setInterval(() => {
-    if (horrorLevel >= 4 && Math.random() < 0.15) {
-      const orig = document.title;
-      document.title = '· · ·';
-      setTimeout(() => { document.title = orig; }, 800);
+    if (horrorLevel >= 4 && Math.random() < .15) {
+      const o = document.title; document.title = '· · ·';
+      setTimeout(() => document.title = o, 800);
     }
   }, 8000);
-
-  // Rastgele micro-glitch (çok yüksek korku seviyesinde)
   setInterval(() => {
-    if (horrorLevel >= 7 && Math.random() < 0.2) triggerGlitch();
+    if (horrorLevel >= 7 && Math.random() < .2) glitch();
   }, 12000);
 });
