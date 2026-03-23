@@ -1,7 +1,7 @@
 const https = require('https');
 
 // Gemini API key — buraya yaz ya da Vercel env'e GEMINI_API_KEY olarak ekle
-const GEMINI_KEY = process.env.GEMINI_API_KEY || 'AIzaSyBqW8r1IoH6c9dZB_fYUQssJvZ0pOJnrVU';
+const GEMINI_KEY = process.env.GEMINI_API_KEY || 'AIzaSyB-g95C7y2--ha4jPRswlBVX0woLtg7d_w';
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
